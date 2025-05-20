@@ -6,7 +6,7 @@
 
 ## 📋 Overview
 
-**spotyListCreator** allows you to effortlessly generate Spotify playlists from text files. Simply list your favorite tracks in a text file, and this tool handles the rest - finding the songs on Spotify and creating a playlist for you, directly into your Spotify library.
+**spotyListCreator** allows you to effortlessly generate Spotify playlists from text files. Simply list your favorite tracks in a text file, and this tool handles the rest - finding the songs on Spotify and creating playlists for you, directly into your Spotify library.
 
 ## ⚙️ Installation
 
