@@ -30,7 +30,7 @@ print("Installing dependencies...")
 pip_path = os.path.join(venv_dir, "bin", "pip")
 try:
     subprocess.run([pip_path, "install", "--upgrade", "pip"], check=True, capture_output=True)
-    subprocess.run([pip_path, "install", "python-dotenv", "spotipy", "shutils", "subprocess", "sys"], check=True)
+    subprocess.run([pip_path, "install", "python-dotenv", "spotipy", "shutils", "sys"], check=True)
     print("Dependencies installed successfully.")
 except Exception as e:
     print(f"Error installing dependencies: {e}")
