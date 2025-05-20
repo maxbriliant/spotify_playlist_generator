@@ -58,7 +58,7 @@ Kavinsky – Nightcall
 Dance With The Dead – That House
 ```
 
-## 🦾 Hint: You can easily use ChatGPT to create your .txt playlist files
+## 🎶 Hint: You can easily use ChatGPT to create your .txt playlist files
 
 Try something like: 
 ```
