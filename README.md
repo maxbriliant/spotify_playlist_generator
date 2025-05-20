@@ -26,7 +26,7 @@ Before using spotyListCreator, you need to set up your Spotify Developer credent
 
 1. Create a Spotify Developer account at [developer.spotify.com](https://developer.spotify.com/)
 2. Create a new application to get your client ID and secret
-3. Edit the `.env` file with your credentials:
+3. Edit the generated `.env` file with your credentials:
    ```
    SPOTIPY_CLIENT_ID=your_client_id
    SPOTIPY_CLIENT_SECRET=your_client_secret
