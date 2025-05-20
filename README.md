@@ -58,6 +58,11 @@ Kavinsky – Nightcall
 Dance With The Dead – That House
 ```
 
+## 📝 Hint: You can easily use ChatGPT to create your .txt playlist files
+
+
+
+
 ## ❓ Troubleshooting
 
 - Check your `.env` file has correct credentials
