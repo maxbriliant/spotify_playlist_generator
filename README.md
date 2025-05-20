@@ -60,9 +60,13 @@ Dance With The Dead – That House
 
 ## 📝 Hint: You can easily use ChatGPT to create your .txt playlist files
 
-```
 Try something like: 
- "Hey ChatGPT, Create a Spotify playlist tailored to my taste using the following format: Artist - Song Title. One song per line."
+```
+ "Hey ChatGPT, Create a Spotify playlist tailored to my taste 
+  using the following format: 
+    Artist - Song Title
+    Artist - Song Title.
+    ... "
 ```
 
 
