@@ -75,7 +75,6 @@ Try something like:
 - Check your `.env` file has correct credentials
 - Make sure your playlist text file has one track per line
 - Working with TrackIDs or https, make sure they aren't dead links
-- For browser authentication issues, try using a private/incognito window
 - Don't forget to set up your Spotify API-Key - use http://localhost:8888/callback as redirect
 - Logs are saved to `spotify_playlist.log` for debugging
 
