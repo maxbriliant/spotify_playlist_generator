@@ -45,15 +45,8 @@ if not os.path.exists(env_path):
         f.write("# Spotify API Credentials - Fill these values!\n")
         f.write("SPOTIPY_CLIENT_ID=your_client_id_here\n")
         f.write("SPOTIPY_CLIENT_SECRET=your_client_secret_here\n")
-        f.write("SPOTIPY_REDIRECT_URI=http://localhost:8888/callback\n")
-    
-    # Also create .env.example as a visible reference
-    with open(env_example_path, "w") as f:
-        f.write("# Spotify API Credentials - EXAMPLE FILE\n")
-        f.write("SPOTIPY_CLIENT_ID=your_client_id_here\n")
-        f.write("SPOTIPY_CLIENT_SECRET=your_client_secret_here\n")
-        f.write("SPOTIPY_REDIRECT_URI=http://localhost:8888/callback\n")
-    
+        f.write("SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback\n")
+
     print(".env template created. You must edit this file with your Spotify credentials!")
 else:
     print(".env file already exists.")
