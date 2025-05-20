@@ -76,7 +76,7 @@ Try something like:
 - Make sure your playlist text file has one track per line
 - Working with TrackIDs or https, make sure they aren't dead links
 - For browser authentication issues, try using a private/incognito window
-- Don't forget to set up your Spotify Dev API-Key - use http://localhost:8888/callback as Redirect
+- Don't forget to set up your Spotify API-Key - use http://localhost:8888/callback as redirect
 - Logs are saved to `spotify_playlist.log` for debugging
 
 ## 📄 License
