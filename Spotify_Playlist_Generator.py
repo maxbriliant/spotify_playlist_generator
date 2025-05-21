@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-#©MxBit2025
-#Enjoy
+# ©MaxBriliant 2025
+# Spotify Playlist Generator - GUI Version
+# Release Candidate v1.0.0
+# 
+# Written as a hobby project during my IT studies
+# Feel free to modify and share under GPL v3
+
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
 import os
@@ -11,17 +16,18 @@ import time
 import subprocess
 import webbrowser
 import re
-import traceback  # Add traceback for better error reporting
+import traceback  # For better error reporting
 
-# Enable debug logging
+# Enable debug logging for final testing phase
+# TODO: Set to False for production release
 DEBUG = True
 
 def debug_log(message):
-    """Print debug messages if debug mode is enabled"""
+    """Print debug messages when debug mode is enabled"""
     if DEBUG:
         print(f"DEBUG: {message}")
 
-# Constants for the UI
+# UI layout constants - carefully tuned for best user experience
 INITIAL_WINDOW_WIDTH = 600
 INITIAL_WINDOW_HEIGHT = 450
 EXPANDED_WINDOW_HEIGHT = 600
@@ -478,8 +484,8 @@ class SpotifyPlaylistGeneratorGUI:
         self.playlist_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
         self.playlist_entry.bind("<FocusOut>", self.update_playlist_name)
         
-        # Songs file
-        songs_label = ttk.Label(form_frame, text="Songs File:")
+        # Playlist file
+        songs_label = ttk.Label(form_frame, text="Playlist File:")
         songs_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
         
         songs_frame = ttk.Frame(form_frame)
@@ -596,28 +602,27 @@ class SpotifyPlaylistGeneratorGUI:
         current_name = self.playlist_entry.get().strip()
         self.playlist_name.set(current_name)
         
-    def populate_recent_files(self):
-        """Load recent files from a config file or similar and preload the first one"""
+    def load_recent_files(self):
+        """Load recent song files from history"""
         try:
-            self.recent_files = []
-            default_songs_file = os.path.join(self.current_dir, "songs.txt")
+            # Start with the default playlist file
+            default_playlist_file = os.path.join(self.current_dir, "playlist.txt")
             
-            # If songs.txt exists in the current directory, add it as the default
-            if os.path.exists(default_songs_file):
-                self.recent_files.append(default_songs_file)
-                # Preload the songs file path in the UI
-                self.songs_file_path.set(default_songs_file)
-                # Start monitoring this file for changes
-                self.start_file_monitoring(default_songs_file)
+            # If playlist.txt exists in the current directory, add it as the default
+            if os.path.isfile(default_playlist_file):
+                self.songs_file_path.set(default_playlist_file)
                 
-            # Add any other .txt files to the recent files list
+                # Preload the playlist file path in the UI
+                self.recent_files = [default_playlist_file]
+                
+            # Look for other .txt files in the current directory to add to the dropdown
             for file in os.listdir(self.current_dir):
-                if file.endswith(".txt") and file != "songs.txt" and os.path.isfile(os.path.join(self.current_dir, file)):
-                    # Add up to 3 recent text files
-                    if len(self.recent_files) < 3:
-                        self.recent_files.append(os.path.join(self.current_dir, file))
+                if file.endswith(".txt") and file != "playlist.txt" and os.path.isfile(os.path.join(self.current_dir, file)):
+                    file_path = os.path.join(self.current_dir, file)
+                    if file_path not in self.recent_files:
+                        self.recent_files.append(file_path)
         except Exception as e:
-            debug_log(f"Error populating recent files: {e}")
+            debug_log(f"Error loading recent files: {e}")
             pass  # Ignore errors in populating recent files
             
     def start_file_monitoring(self, file_path):
@@ -657,9 +662,9 @@ class SpotifyPlaylistGeneratorGUI:
         self.monitoring_job = self.root.after(1000, self.check_file_changes)
     
     def browse_file(self):
-        """Open file dialog to select a songs file"""
+        """Open file dialog to select a playlist file"""
         file_path = filedialog.askopenfilename(
-            title="Select Songs File",
+            title="Select Playlist File",
             filetypes=[
                 ("Text files", "*.txt"),
                 ("All files", "*.*")
@@ -785,7 +790,7 @@ class SpotifyPlaylistGeneratorGUI:
                 return
             
             if not songs_file or not os.path.exists(songs_file):
-                messagebox.showwarning("Input Error", "Please select a valid songs file.")
+                messagebox.showwarning("Input Error", "Please select a valid playlist file.")
                 return
             
             # Check environment

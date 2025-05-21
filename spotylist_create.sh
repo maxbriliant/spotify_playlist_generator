@@ -1,20 +1,28 @@
-# filepath: /aiPlaylistGenerator/create_spotify_playlist.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
-#©MxBit2020
-#Enjoy
 
-# ---- KONFIG ----
+# -------------------------------------------------------------------------
+# Spotify Playlist Generator - Shell Script
+# Version: 1.0.0 - Release Candidate
+# Author: MaxBriliant
+# Created as part of my hobby project during IT studies
+# Last updated: May 2025
+# -------------------------------------------------------------------------
+
+
+# ---- CONFIG ----
 VENV_DIR="venv_spotify"
 SCRIPT_NAME="main.py"
 LOG_FILE="spotify_playlist.log"
 
-# Farben
+
+# Colors for better user experience and terminal output
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
-NC='\033[0m'
+NC='\033[0m' # No Color
+
 
 # ---- USAGE ----
 if [[ "$#" -lt 2 ]]; then
@@ -25,6 +33,7 @@ fi
 
 PLAYLIST_NAME="$1"
 TRACKS_FILE="$2"
+
 
 # ---- CHECKS ----
 if [[ ! -f "$TRACKS_FILE" ]]; then
@@ -48,10 +57,12 @@ else
   source "$VENV_DIR/bin/activate"
 fi
 
+
 # ---- GENERATE & RUN PYTHON ----
 echo -e "${YELLOW}Starte Playlist-Erstellung für '$PLAYLIST_NAME'...${NC}"
 python3 "$SCRIPT_NAME" "$PLAYLIST_NAME" "$TRACKS_FILE"
 EXIT_CODE=$?
+
 
 # ---- CLEANUP ----
 deactivate

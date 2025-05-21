@@ -1,4 +1,25 @@
 #!/usr/bin/env python3
+"""
+Spotify Playlist Generator - Core Script
+----------------------------------------
+Version: 1.0.0 (Release Candidate)
+Author: MaxBriliant
+Date: May 2025
+
+This script is the heart of my Spotify Playlist Generator - honestly, my first 
+serious coding project that I worked on while learning Python. I started it because 
+I was tired of manually creating playlists song by song!
+So i created something you can input an AI generated Song List.
+
+What it does:
+- Creates Spotify playlists from text files with minimal effort
+- Handles artist-title formats, URLs, or Spotify IDs - whatever you throw at it
+- Tries really hard to find the right songs with multiple search strategies
+- Processes songs in batches so large playlists don't crash
+
+For the easy way, just use the GUI: ./Spotify_Playlist_Generator.py
+"""
+
 from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyOAuth
 import spotipy
@@ -7,10 +28,11 @@ import os
 import time
 import re
 
-# Logging-Funktion
+# Logging stuff - because I like to know what's happening
 def log(message: str) -> None:
     """
-    Loggt Nachrichten mit Zeitstempel in stdout und in 'spotify_playlist.log'.
+    Adds timestamps to messages and saves them to a log file.
+    I might be a bit obsessive about logging, but it's saved me many times!
     """
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     entry = f"{timestamp} - {message}"
@@ -18,77 +40,89 @@ def log(message: str) -> None:
     with open("spotify_playlist.log", "a", encoding="utf-8") as f:
         f.write(entry + "\n")
 
-# Verbesserte Funktion: Flexiblere Suche nach Track-ID
+# The search magic - this took me forever to get right!
 def search_track_id(sp: spotipy.Spotify, query: str) -> str:
     """
-    Sucht einen Track mit verschiedenen Suchstrategien:
-    1. Erst versuchen, nach Titel und Künstler getrennt zu suchen
-    2. Falls nicht erfolgreich, versuchen mit allgemeiner Suche
-    3. Falls nicht erfolgreich, versuchen mit teilweiser Übereinstimmung
+    My not-so-secret sauce for finding tracks. If one method fails, try another!
     
-    Gibt die erste gefundene ID zurück oder None.
+    I learned the hard way that the Spotify API can be picky, so I built this
+    with three fallback strategies:
+    1. The precise approach: Try artist and title separately for exact matches 
+    2. The straightforward approach: Just search the whole string
+    3. The desperate approach: Strip special characters and try again
+    
+    # TODO: Maybe add some fuzzy matching? Sometimes the titles have typos...
     """
     track_id = None
     
     try:
-        # Strategie 1: Suche mit track und artist Parametern getrennt
+        # First attempt - the proper way
         if " - " in query:
             track_name, artist = query.split(" - ", 1)
             result = sp.search(q=f'track:"{track_name}" artist:"{artist}"', type="track", limit=1)
             if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
                 track_id = result["tracks"]["items"][0]["id"]
-                log(f"Gefunden via präzise Suche: {query}")
+                log(f"Found with precise search: {query}")
         
-        # Strategie 2: Allgemeine Suche mit vollständiger Query
+        # Second attempt - just throw the whole thing at Spotify
         if not track_id:
             result = sp.search(q=query, type="track", limit=1)
             if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
                 track_id = result["tracks"]["items"][0]["id"]
-                log(f"Gefunden via allgemeine Suche: {query}")
+                log(f"Found with general search: {query}")
         
-        # Strategie 3: Weniger präzise Suche für Titel mit Spezialzeichen
+        # Last resort - clean up the text and try again
         if not track_id and " - " in query:
             track_name, artist = query.split(" - ", 1)
-            # Entferne Sonderzeichen und Klammern
+            # Strip those pesky special characters 
             clean_track = re.sub(r'[^\w\s]', '', track_name)
             clean_artist = re.sub(r'[^\w\s]', '', artist)
             result = sp.search(q=f'{clean_track} {clean_artist}', type="track", limit=1)
             if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
                 track_id = result["tracks"]["items"][0]["id"]
-                log(f"Gefunden via bereinigte Suche: {query}")
+                log(f"Found with sanitized search: {query}")
         
-        # Wenn immer noch nichts gefunden wurde
+        # If we still found nothing, admit defeat
         if not track_id:
-            log(f"Nicht gefunden: {query}")
-            return ""  # Return empty string instead of None
+            log(f"Couldn't find: {query} - maybe check the spelling?")
+            return ""
             
         return track_id
         
     except Exception as e:
-        log(f"Fehler bei der Suche nach '{query}': {e}")
-        return ""  # Return empty string instead of None
+        log(f"Search error for '{query}': {e}")
+        return ""
 
-# Hauptfunktion
+# Where the magic happens
 def main():
+    """
+    The main workflow that ties everything together:
+    
+    1. Check that the user isn't missing anything important
+    2. Log in to Spotify (the OAuth dance)
+    3. Create a shiny new playlist
+    4. Hunt down all the tracks from the input file
+    5. Add everything to the playlist in batches
+    """
     if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <Playlist-Name> <Eingabe-Datei>")
+        print(f"Usage: {sys.argv[0]} <Playlist-Name> <Input-File>")
         sys.exit(1)
 
     playlist_name = sys.argv[1]
     input_file = sys.argv[2]
 
-    log("Script gestartet")
+    log("Script started - let's make a playlist!")
 
-    # Lade Umgebungsvariablen
+    # Get our credentials from the .env file
     load_dotenv()
     CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
     CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
     REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
     if not all([CLIENT_ID, CLIENT_SECRET, REDIRECT_URI]):
-        log("Fehler: Spotify-Credentials fehlen in .env")
+        log("Error: Missing Spotify credentials in .env file - did you set them up?")
         sys.exit(1)
 
-    # Authentifizierung
+    # Connect to Spotify - fingers crossed!
     try:
         sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
             client_id=CLIENT_ID,
@@ -98,109 +132,111 @@ def main():
             cache_path=".spotify_cache"
         ))
         
-        # Get user ID safely with None check
+        # Make sure we're actually logged in
         me_info = sp.me()
         if me_info is None:
-            log("Fehler: Konnte keine Benutzerinformation abrufen")
+            log("Error: Couldn't get user info - authentication might have failed")
             sys.exit(1)
             
         user_id = me_info.get("id")
         if not user_id:
-            log("Fehler: Keine Benutzer-ID erhalten")
+            log("Error: No user ID received - weird API response?")
             sys.exit(1)
             
-        log(f"Authentifiziert als {user_id}")
+        log(f"Logged in as {user_id} - we're good to go!")
     except Exception as e:
-        log(f"Authentifizierungsfehler: {e}")
+        log(f"Authentication failed: {e}")
         sys.exit(1)
 
-    # Playlist erstellen
+    # Create the playlist with today's date
     try:
         playlist = sp.user_playlist_create(
             user=user_id,
             name=playlist_name,
             public=False,
-            description=f"Erstellt am {time.strftime('%d.%m.%Y %H:%M')}"
+            description=f"Created on {time.strftime('%d.%m.%Y %H:%M')} with my Spotify Playlist Generator"
         )
         
-        # Make sure playlist was created successfully
+        # Make sure the playlist was actually created
         if playlist is None:
-            log("Fehler: Playlist konnte nicht erstellt werden (keine Rückgabe)")
+            log("Error: Couldn't create playlist - no response from Spotify")
             sys.exit(1)
             
         playlist_id = playlist.get("id")
         if not playlist_id:
-            log("Fehler: Keine Playlist-ID erhalten")
+            log("Error: No playlist ID received - something's wrong")
             sys.exit(1)
             
-        # Get Spotify URL safely
+        # Get the URL so we can open it later
         external_urls = playlist.get("external_urls", {})
         playlist_url = external_urls.get("spotify")
         
         if not playlist_url:
-            log("Warnung: Kein Playlist-URL erhalten")
+            log("Warning: No playlist URL received - that's strange")
             
-        log(f"Playlist erstellt: {playlist_url}")
+        log(f"Playlist created: {playlist_url}")
     except Exception as e:
-        log(f"Fehler beim Erstellen der Playlist: {e}")
+        log(f"Error creating playlist: {e}")
         sys.exit(1)
 
-    # Einlesen der Eingabedatei
+    # Read the songs from the file
     try:
         with open(input_file, "r", encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
     except Exception as e:
-        log(f"Fehler beim Lesen der Datei '{input_file}': {e}")
+        log(f"Error reading file '{input_file}': {e}")
         sys.exit(1)
 
-    # Extrahieren oder Suchen von Track-IDs
+    # Find all the track IDs
     track_ids = []
     for line in lines:
-        # Prüfen auf bereits vorhandene ID
+        # Look for different formats:
+        
+        # Direct Spotify IDs - easy mode
         id_match = re.fullmatch(r"[A-Za-z0-9]{22}", line)
         if id_match:
             track_ids.append(line)
             continue
             
-        # Prüfen URI
+        # Spotify URIs like spotify:track:xxxx
         uri_match = re.search(r"spotify:track:([A-Za-z0-9]{22})", line)
         if uri_match:
             track_ids.append(uri_match.group(1))
             continue
             
-        # Prüfen HTTP-Link
+        # Spotify URLs from the website/app
         http_match = re.search(r"open\.spotify\.com/track/([A-Za-z0-9]{22})", line)
         if http_match:
             track_ids.append(http_match.group(1))
             continue
             
-        # Andernfalls interpretiere als "Song - Künstler" mit verbesserter Suche
+        # The hard way - just "Artist - Song" format
         tid = search_track_id(sp, line)
         if tid:
             track_ids.append(tid)
         else:
-            log(f"Keine ID für '{line}' gefunden.")
+            log(f"Couldn't find '{line}' - skipping this one")
 
-    # Duplikate entfernen
+    # Remove duplicates so we don't add the same song twice
     unique_ids = list(dict.fromkeys(track_ids))
     if not unique_ids:
-        log("Keine valide Track-IDs ermittelt.")
+        log("No valid tracks found - check your input file")
         sys.exit(1)
-    log(f"Insgesamt {len(unique_ids)} eindeutige Track-IDs")
+    log(f"Found {len(unique_ids)} unique tracks - adding to playlist!")
 
-    # Tracks in Batches zur Playlist hinzufügen
+    # Add songs in batches (Spotify limit is 100 per request)
     for i in range(0, len(unique_ids), 100):
         batch = unique_ids[i:i+100]
         try:
             sp.playlist_add_items(playlist_id, batch)
-            log(f"Batch hinzugefügt: {len(batch)} Tracks")
+            log(f"Added batch of {len(batch)} tracks")
         except Exception as e:
-            log(f"Fehler beim Hinzufügen von Tracks: {e}")
+            log(f"Error adding tracks: {e}")
             sys.exit(1)
 
-    log(f"Erfolgreich {len(unique_ids)} Tracks hinzugefügt.")
+    log(f"Success! Added {len(unique_ids)} tracks to your playlist.")
     
-    # Ausgabe des Playlist-Links in einem konsistenten Format für die GUI
+    # Print the playlist link so the GUI can grab it
     print(f"Playlist-Link: {playlist_url}")
 
 if __name__ == "__main__":
