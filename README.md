@@ -110,5 +110,9 @@ The GUI includes several helpful features:
 
 ## 📄 License
 
+This project is released under the GNU General Public License v3 (GPL-3.0).
+You are free to use, modify, and distribute this software according to the terms of the license.
+See the [LICENSE](LICENSE) file for the full license text.
+
 This project is maintained by MxBit © 2025.  
 Contact: mxbit(at)yahoo.com
