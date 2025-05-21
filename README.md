@@ -73,7 +73,10 @@ Where `playlist.txt` contains one song per line in any of these formats:
 - Spotify URI (spotify:track:xxxx)
 - Spotify URL (open.spotify.com/track/xxxx)
 
-*Note: When using AI tools like ChatGPT to create playlists, the Artist - Title format works best since AI models have better training data for this format compared to Spotify IDs or URLs.*
+*Note:* 
+*When using AI tools like ChatGPT to create playlists, the **Artist - Title** format works best*
+*since AI models have older training data in Spotify IDs or URLs.*
+
 
 ## 📝 Example Playlist Format
 
@@ -85,8 +88,8 @@ Magic Sword – In The Face Of Evil
 Kavinsky – Nightcall
 Dance With The Dead – That House
 ```
+*AI tools like ChatGPT are best at generating playlists in the *Artist - Title* format shown above,*
 
-*AI tools like ChatGPT are best at generating playlists in the Artist - Title format shown above, as these models have better training data for recognizing artist names and song titles rather than Spotify IDs or URLs.*
 
 ## 🎶 Hint: You can easily use ChatGPT to create your .txt playlist files
 
@@ -95,9 +98,10 @@ Try something like:
  "Hey ChatGPT, Create a Spotify playlist tailored to my taste 
   using the following format: 
     Artist - Song Title
-    Artist - Song Title.
+    Artist - Song Title
     ... "
 ```
+Save as .txt and enjoy the Playlist being loaded into your Spotify Account.
 
 ## 🖥️ GUI Features
 
@@ -124,5 +128,5 @@ This project is released under the GNU General Public License v3 (GPL-3.0).
 You are free to use, modify, and distribute this software according to the terms of the license.
 See the [LICENSE](LICENSE) file for the full license text.
 
-This project is maintained by MxBit © 2025.  
+This project is maintained by MaxBriliant - 05/2025.  
 Contact: mxbit(at)yahoo.com
