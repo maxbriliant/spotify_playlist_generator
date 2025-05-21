@@ -72,7 +72,7 @@ print("Setting file permissions...")
 executable_files = [
     os.path.join(current_dir, "Spotify_Playlist_Generator.py"),
     os.path.join(current_dir, "main.py"),
-    os.path.join(current_dir, "spotylist_create.sh"),
+    os.path.join(current_dir, "generate.sh"),
     os.path.join(current_dir, "install.py"),
     os.path.join(current_dir, "debug_test.py")
 ]
@@ -94,7 +94,7 @@ print("\n=== Installation Complete ===")
 print("To use the Spotify Playlist Generator:")
 print("1. Edit the .env file with your Spotify API credentials")
 print("2. Create a playlist.txt file with songs in format 'Artist - Song Title'")
-print("3. Run: ./spotylist_create.sh 'My Playlist Name' playlist.txt")
+print("3. Run: ./generate.sh 'My Playlist Name' playlist.txt")
 print("   OR")
 print("4. Use the GUI version: ./Spotify_Playlist_Generator.py")
 print("\nEnjoy your music!")

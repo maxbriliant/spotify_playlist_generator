@@ -820,7 +820,7 @@ class SpotifyPlaylistGeneratorGUI:
             
             # Try using the shell script first since it's known to work on Linux/Mac
             if sys.platform == 'linux' or sys.platform.startswith('darwin'):
-                script_path = os.path.join(self.current_dir, "spotylist_create.sh")
+                script_path = os.path.join(self.current_dir, "generate.sh")
                 
                 # Verify script permissions
                 if not os.access(script_path, os.X_OK):
