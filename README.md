@@ -87,8 +87,8 @@ Try something like:
     Artist - Song Title
     Artist - Song Title
     ... "
-Save as .txt and enjoy the Songs being loaded into your Account.
 ```
+Save as .txt and enjoy the Songs being loaded into your Account.
 
 ## 🖥️ GUI Features
 
