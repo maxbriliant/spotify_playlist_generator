@@ -73,8 +73,8 @@ Where `playlist.txt` contains one song per line in any of these formats:
 - Spotify URI (spotify:track:xxxx)
 - Spotify URL (open.spotify.com/track/xxxx)
 
-*Note: When using AI tools like ChatGPT to create playlists, the **Artist - Title** format works best\n 
- since AI models have older training data in Spotify IDs or URLs.*
+*Note: When using AI tools like ChatGPT to create playlists, the **Artist - Title** format works best*
+*since AI models have older training data in Spotify IDs or URLs.*
 
 
 ## 📝 Example Playlist Format
