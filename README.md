@@ -8,6 +8,12 @@
 
 **Spotify Playlist Generator** allows you to effortlessly generate Spotify playlists from text files. Simply list your favorite tracks in a text file, and this tool handles the rest - finding the songs on Spotify and creating playlists for you, placing them right into your Spotify library.
 
+### What it does:
+- Creates Spotify playlists from text files with minimal effort
+- Handles artist-title formats, URLs, or Spotify IDs - whatever you throw at it
+- Tries really hard to find the right songs with multiple search strategies
+- Processes songs in batches so large playlists don't crash
+
 ## ⚙️ Installation
 
 ```bash
