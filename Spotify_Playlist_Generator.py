@@ -1101,7 +1101,7 @@ def main():
         app = SpotifyPlaylistGeneratorGUI(root)
         
         # Make sure to load any recent files for the UI
-        app.populate_recent_files()
+        app.load_recent_files()
         
         # Center the main window
         screen_width = root.winfo_screenwidth()
