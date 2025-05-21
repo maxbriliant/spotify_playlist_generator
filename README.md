@@ -85,7 +85,7 @@ Try something like:
  "Hey ChatGPT, Create a Spotify playlist tailored to my taste 
   using the following format: 
     Artist - Song Title
-    Artist - Song Title.
+    Artist - Song Title
     ... "
 ```
 
