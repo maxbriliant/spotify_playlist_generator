@@ -96,7 +96,6 @@ The GUI includes several helpful features:
 - **Splash Screen**: Visual feedback during startup
 - **Credentials Management**: Easy setup of your Spotify API keys
 - **Console Output**: Formatted, color-coded output makes it easy to follow the process
-- **Cross-Platform**: Works on Linux, macOS, and Windows
 
 ![Credentials Setup](demo2.png)
 
