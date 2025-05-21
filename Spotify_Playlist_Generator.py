@@ -88,7 +88,7 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         # Header
         header_label = ttk.Label(main_frame, text="Spotify API Credentials Setup", 
                                font=("Helvetica", 16, "bold"), foreground="#1DB954")
-        header_label.pack(pady=(0, 5))
+        header_label.pack(pady=(0, 5), anchor="w")  # Aligned left with anchor="w"
         
         # Instructions
         instructions_frame = ttk.Frame(main_frame)
