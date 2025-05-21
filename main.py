@@ -36,18 +36,16 @@ def search_track_id(sp: spotipy.Spotify, query: str) -> str:
         if " - " in query:
             track_name, artist = query.split(" - ", 1)
             result = sp.search(q=f'track:"{track_name}" artist:"{artist}"', type="track", limit=1)
-            items = result.get("tracks", {}).get("items", [])
-            if items:
-                track_id = items[0]["id"]
+            if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
+                track_id = result["tracks"]["items"][0]["id"]
                 log(f"Gefunden via präzise Suche: {query}")
                 return track_id
         
         # Strategie 2: Allgemeine Suche mit vollständiger Query
         if not track_id:
             result = sp.search(q=query, type="track", limit=1)
-            items = result.get("tracks", {}).get("items", [])
-            if items:
-                track_id = items[0]["id"]
+            if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
+                track_id = result["tracks"]["items"][0]["id"]
                 log(f"Gefunden via allgemeine Suche: {query}")
                 return track_id
         
@@ -58,20 +56,19 @@ def search_track_id(sp: spotipy.Spotify, query: str) -> str:
             clean_track = re.sub(r'[^\w\s]', '', track_name)
             clean_artist = re.sub(r'[^\w\s]', '', artist)
             result = sp.search(q=f'{clean_track} {clean_artist}', type="track", limit=1)
-            items = result.get("tracks", {}).get("items", [])
-            if items:
-                track_id = items[0]["id"]
-                track_info = f"{items[0]['name']} - {items[0]['artists'][0]['name']}"
+            if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
+                track_id = result["tracks"]["items"][0]["id"]
+                track_info = f"{result['tracks']['items'][0]['name']} - {result['tracks']['items'][0]['artists'][0]['name']}"
                 log(f"Gefunden via flexible Suche: {query} → {track_info}")
                 return track_id
         
         # Wenn immer noch nichts gefunden wurde
         log(f"Nicht gefunden: {query}")
-        return None
+        return ""  # Return empty string instead of None
         
     except Exception as e:
         log(f"Fehler bei der Suche nach '{query}': {e}")
-        return None
+        return ""  # Return empty string instead of None
 
 # Hauptfunktion
 def main():
@@ -102,7 +99,18 @@ def main():
             scope="playlist-modify-private playlist-modify-public",
             cache_path=".spotify_cache"
         ))
-        user_id = sp.me()["id"]
+        
+        # Get user ID safely with None check
+        me_info = sp.me()
+        if me_info is None:
+            log("Fehler: Konnte keine Benutzerinformation abrufen")
+            sys.exit(1)
+            
+        user_id = me_info.get("id")
+        if not user_id:
+            log("Fehler: Keine Benutzer-ID erhalten")
+            sys.exit(1)
+            
         log(f"Authentifiziert als {user_id}")
     except Exception as e:
         log(f"Authentifizierungsfehler: {e}")
@@ -116,8 +124,25 @@ def main():
             public=False,
             description=f"Erstellt am {time.strftime('%d.%m.%Y %H:%M')}"
         )
-        playlist_id = playlist["id"]
-        playlist_url = playlist["external_urls"]["spotify"]
+        
+        # Make sure playlist was created successfully
+        if playlist is None:
+            log("Fehler: Playlist konnte nicht erstellt werden (keine Rückgabe)")
+            sys.exit(1)
+            
+        playlist_id = playlist.get("id")
+        if not playlist_id:
+            log("Fehler: Keine Playlist-ID erhalten")
+            sys.exit(1)
+            
+        # Get Spotify URL safely
+        external_urls = playlist.get("external_urls", {})
+        playlist_url = external_urls.get("spotify")
+        
+        if not playlist_url:
+            log("Warnung: Kein Playlist-URL erhalten")
+            playlist_url = f"https://open.spotify.com/playlist/{playlist_id}"
+            
         log(f"Playlist erstellt: {playlist_url}")
     except Exception as e:
         log(f"Fehler beim Erstellen der Playlist: {e}")
@@ -176,6 +201,8 @@ def main():
             log(f"Fehler beim Hinzufügen der Batch: {e}")
 
     log(f"Erfolgreich {len(unique_ids)} Tracks hinzugefügt.")
+    
+    # Ausgabe des Playlist-Links in einem konsistenten Format für die GUI
     print(f"Playlist-Link: {playlist_url}")
 
 if __name__ == "__main__":
