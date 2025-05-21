@@ -88,7 +88,6 @@ Kavinsky – Nightcall
 Dance With The Dead – That House
 ```
 *AI tools like ChatGPT are best at generating playlists in the Artist - Title format shown above,*
-*as these models have better training data for recognizing artist names and song titles rather than Spotify IDs or URLs.*
 
 
 ## 🎶 Hint: You can easily use ChatGPT to create your .txt playlist files
