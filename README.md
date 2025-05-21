@@ -68,10 +68,13 @@ Create a playlist with:
 ```
 
 Where `playlist.txt` contains one song per line in any of these formats:
-- Artist - Song Title (e.g., "Kavinsky - Nightcall")
+- Artist - Song Title (e.g., "Kavinsky - Nightcall") - **Recommended for AI-generated playlists**
 - Spotify Track ID (22-character code)
 - Spotify URI (spotify:track:xxxx)
 - Spotify URL (open.spotify.com/track/xxxx)
+
+*Note: When using AI tools like ChatGPT to create playlists, the Artist - Title format works best since AI models have better training data for this format compared to Spotify IDs or URLs.*
+
 
 ## 📝 Example Playlist Format
 
@@ -83,6 +86,8 @@ Magic Sword – In The Face Of Evil
 Kavinsky – Nightcall
 Dance With The Dead – That House
 ```
+*AI tools like ChatGPT are best at generating playlists in the Artist - Title format shown above, as these models have better training data for recognizing artist names and song titles rather than Spotify IDs or URLs.*
+
 
 ## 🎶 Hint: You can easily use ChatGPT to create your .txt playlist files
 
