@@ -95,10 +95,7 @@ The GUI includes several helpful features:
 
 - **Splash Screen**: Visual feedback during startup
 - **Credentials Management**: Easy setup of your Spotify API keys
-- **File Monitoring**: Automatically detects when songs.txt is changed externally
-- **Song File Management**: Remembers recently used song files
 - **Console Output**: Formatted, color-coded output makes it easy to follow the process
-- **Error Handling**: Robust error detection and recovery
 - **Cross-Platform**: Works on Linux, macOS, and Windows
 
 ![Credentials Setup](demo2.png)
