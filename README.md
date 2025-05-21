@@ -58,7 +58,7 @@ The GUI provides:
 Create a playlist with:
 
 ```bash
-./spotylist_create.sh "My Playlist Name" playlist.txt
+./generate.sh "My Playlist Name" playlist.txt
 ```
 
 Where `playlist.txt` contains one song per line in any of these formats:
