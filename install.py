@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 
-#©MxBit2025
-#Enjoy
+# ©MaxBriliant 2025
+# Spotify Playlist Generator - Install Script
+# Release Candidate v1.0.0
+# 
+# Written as a hobby project during my IT studies
+# Feel free to modify and share under GPL v3
 
 import os
 import shutil
@@ -66,7 +70,7 @@ else:
 # Make executable files properly executable
 print("Setting file permissions...")
 executable_files = [
-    os.path.join(current_dir, "gui_runner.py"),
+    os.path.join(current_dir, "Spotify_Playlist_Generator.py"),
     os.path.join(current_dir, "main.py"),
     os.path.join(current_dir, "spotylist_create.sh"),
     os.path.join(current_dir, "install.py"),
@@ -92,5 +96,5 @@ print("1. Edit the .env file with your Spotify API credentials")
 print("2. Create a playlist.txt file with songs in format 'Artist - Song Title'")
 print("3. Run: ./spotylist_create.sh 'My Playlist Name' playlist.txt")
 print("   OR")
-print("4. Use the GUI version: ./gui_runner.py")
+print("4. Use the GUI version: ./Spotify_Playlist_Generator.py")
 print("\nEnjoy your music!")

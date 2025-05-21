@@ -40,7 +40,7 @@ Before using Spotify Playlist Generator, you need to set up your Spotify Develop
 The easiest way to use Spotify Playlist Generator with the graphical interface - double click it, or run via bash:
 
 ```bash
-python3 gui_runner.py
+python3 Spotify_Playlist_Generator.py
 ```
 
 The GUI provides:
@@ -58,10 +58,10 @@ The GUI provides:
 Create a playlist with:
 
 ```bash
-./spotylist_create.sh "My Playlist Name" songs.txt
+./spotylist_create.sh "My Playlist Name" playlist.txt
 ```
 
-Where `songs.txt` contains one song per line in any of these formats:
+Where `playlist.txt` contains one song per line in any of these formats:
 - Artist - Song Title (e.g., "Kavinsky - Nightcall")
 - Spotify Track ID (22-character code)
 - Spotify URI (spotify:track:xxxx)
