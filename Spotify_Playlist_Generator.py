@@ -41,6 +41,9 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         self.env_path = env_path
         self.result = False
         
+        # Initialize variables that are referenced elsewhere
+        self.show_secret_var = tk.BooleanVar(value=False)
+        
         # Track file modification time
         self.last_modified_time = os.path.getmtime(self.env_path) if os.path.exists(self.env_path) else 0
         
@@ -273,18 +276,10 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         self.destroy()
 
     def update_preview(self, *args):
-        """Update the preview text with current values"""
-        client_id = self.client_id_var.get().strip()
-        client_secret = self.client_secret_var.get().strip()
-        redirect_uri = self.redirect_uri_var.get().strip()
-        
-        # Update preview text - ensuring it's visible and usable for copy/paste
-        self.preview_text.config(state=tk.NORMAL)
-        self.preview_text.delete(1.0, tk.END)
-        self.preview_text.insert(tk.END, f"SPOTIPY_CLIENT_ID={client_id}\n")
-        self.preview_text.insert(tk.END, f"SPOTIPY_CLIENT_SECRET={client_secret}\n")
-        self.preview_text.insert(tk.END, f"SPOTIPY_REDIRECT_URI={redirect_uri}\n")
-        self.preview_text.config(state=tk.DISABLED)
+        """Update preview - placeholder for backwards compatibility"""
+        # This method is no longer used but referenced in the code elsewhere
+        # Keeping it as a stub for compatibility
+        pass
 
     def check_for_file_changes(self):
         """Check if the .env file has been modified externally and reload if so"""
@@ -314,6 +309,7 @@ class SpotifyPlaylistGeneratorGUI:
         
         # Use light theme colors
         self.accent_color = "#1DB954"  # Spotify green
+        self.bg_color = "#F8F8F8"      # Light background color for dialogs
         
         # Configure style
         self.style = ttk.Style()
