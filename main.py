@@ -1,12 +1,11 @@
-# filepath: /aiPlaylistGenerator/aiPlaylistGenerator/main.py
 #!/usr/bin/env python3
-import os
+from dotenv import load_dotenv
+from spotipy.oauth2 import SpotifyOAuth
+import spotipy
 import sys
+import os
 import time
 import re
-from dotenv import load_dotenv
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
 
 # Logging-Funktion
 def log(message: str) -> None:
@@ -39,7 +38,6 @@ def search_track_id(sp: spotipy.Spotify, query: str) -> str:
             if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
                 track_id = result["tracks"]["items"][0]["id"]
                 log(f"Gefunden via präzise Suche: {query}")
-                return track_id
         
         # Strategie 2: Allgemeine Suche mit vollständiger Query
         if not track_id:
@@ -47,7 +45,6 @@ def search_track_id(sp: spotipy.Spotify, query: str) -> str:
             if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
                 track_id = result["tracks"]["items"][0]["id"]
                 log(f"Gefunden via allgemeine Suche: {query}")
-                return track_id
         
         # Strategie 3: Weniger präzise Suche für Titel mit Spezialzeichen
         if not track_id and " - " in query:
@@ -58,13 +55,14 @@ def search_track_id(sp: spotipy.Spotify, query: str) -> str:
             result = sp.search(q=f'{clean_track} {clean_artist}', type="track", limit=1)
             if result and "tracks" in result and "items" in result["tracks"] and result["tracks"]["items"]:
                 track_id = result["tracks"]["items"][0]["id"]
-                track_info = f"{result['tracks']['items'][0]['name']} - {result['tracks']['items'][0]['artists'][0]['name']}"
-                log(f"Gefunden via flexible Suche: {query} → {track_info}")
-                return track_id
+                log(f"Gefunden via bereinigte Suche: {query}")
         
         # Wenn immer noch nichts gefunden wurde
-        log(f"Nicht gefunden: {query}")
-        return ""  # Return empty string instead of None
+        if not track_id:
+            log(f"Nicht gefunden: {query}")
+            return ""  # Return empty string instead of None
+            
+        return track_id
         
     except Exception as e:
         log(f"Fehler bei der Suche nach '{query}': {e}")
@@ -141,7 +139,6 @@ def main():
         
         if not playlist_url:
             log("Warnung: Kein Playlist-URL erhalten")
-            playlist_url = f"https://open.spotify.com/playlist/{playlist_id}"
             
         log(f"Playlist erstellt: {playlist_url}")
     except Exception as e:
@@ -151,7 +148,7 @@ def main():
     # Einlesen der Eingabedatei
     try:
         with open(input_file, "r", encoding="utf-8") as f:
-            lines = [l.strip() for l in f if l.strip()]
+            lines = [line.strip() for line in f if line.strip()]
     except Exception as e:
         log(f"Fehler beim Lesen der Datei '{input_file}': {e}")
         sys.exit(1)
@@ -163,26 +160,26 @@ def main():
         id_match = re.fullmatch(r"[A-Za-z0-9]{22}", line)
         if id_match:
             track_ids.append(line)
-            log(f"Direkte ID genutzt: {line}")
             continue
+            
         # Prüfen URI
         uri_match = re.search(r"spotify:track:([A-Za-z0-9]{22})", line)
         if uri_match:
             track_ids.append(uri_match.group(1))
-            log(f"URI-ID genutzt: {uri_match.group(1)}")
             continue
+            
         # Prüfen HTTP-Link
         http_match = re.search(r"open\.spotify\.com/track/([A-Za-z0-9]{22})", line)
         if http_match:
             track_ids.append(http_match.group(1))
-            log(f"HTTP-Link-ID genutzt: {http_match.group(1)}")
             continue
+            
         # Andernfalls interpretiere als "Song - Künstler" mit verbesserter Suche
         tid = search_track_id(sp, line)
         if tid:
             track_ids.append(tid)
         else:
-            log(f"Nicht gefunden: {line}")
+            log(f"Keine ID für '{line}' gefunden.")
 
     # Duplikate entfernen
     unique_ids = list(dict.fromkeys(track_ids))
@@ -198,7 +195,8 @@ def main():
             sp.playlist_add_items(playlist_id, batch)
             log(f"Batch hinzugefügt: {len(batch)} Tracks")
         except Exception as e:
-            log(f"Fehler beim Hinzufügen der Batch: {e}")
+            log(f"Fehler beim Hinzufügen von Tracks: {e}")
+            sys.exit(1)
 
     log(f"Erfolgreich {len(unique_ids)} Tracks hinzugefügt.")
     

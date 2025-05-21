@@ -1,4 +1,4 @@
-# spotyListCreator
+# Spotify Playlist Generator
 
 ![Spotify Playlist Generator](https://img.shields.io/badge/Spotify-Playlist%20Generator-1DB954?style=for-the-badge&logo=spotify&logoColor=white)
 
@@ -6,7 +6,7 @@
 
 ## 📋 Overview
 
-**spotyListCreator** allows you to effortlessly generate Spotify playlists from text files. Simply list your favorite tracks in a text file, and this tool handles the rest - finding the songs on Spotify and creating playlists for you, placing them right into your Spotify library.
+**Spotify Playlist Generator** allows you to effortlessly generate Spotify playlists from text files. Simply list your favorite tracks in a text file, and this tool handles the rest - finding the songs on Spotify and creating playlists for you, placing them right into your Spotify library.
 
 ## ⚙️ Installation
 
@@ -22,7 +22,7 @@ This will automatically:
 
 ## 🔑 Configuration
 
-Before using spotyListCreator, you need to set up your Spotify Developer credentials:
+Before using Spotify Playlist Generator, you need to set up your Spotify Developer credentials:
 
 1. Create a Spotify Developer account at [developer.spotify.com](https://developer.spotify.com/)
 2. Create a new application to get your client ID and secret
@@ -34,6 +34,26 @@ Before using spotyListCreator, you need to set up your Spotify Developer credent
    ```
 
 ## 🚀 Usage
+
+### GUI Interface (Recommended)
+
+The easiest way to use Spotify Playlist Generator is with the graphical interface:
+
+```bash
+./gui_runner.py
+```
+
+The GUI provides:
+- Easy playlist creation without command line knowledge
+- Spotify credentials management
+- Song file browsing and selection
+- Real-time console output
+- Automatic environment checking
+- One-click opening of created playlists
+
+![GUI Screenshot](demo1.png)
+
+### Command Line Usage
 
 Create a playlist with:
 
@@ -69,6 +89,19 @@ Try something like:
     ... "
 ```
 
+## 🖥️ GUI Features
+
+The GUI includes several helpful features:
+
+- **Splash Screen**: Visual feedback during startup
+- **Credentials Management**: Easy setup of your Spotify API keys
+- **File Monitoring**: Automatically detects when songs.txt is changed externally
+- **Song File Management**: Remembers recently used song files
+- **Console Output**: Formatted, color-coded output makes it easy to follow the process
+- **Error Handling**: Robust error detection and recovery
+- **Cross-Platform**: Works on Linux, macOS, and Windows
+
+![Credentials Setup](demo2.png)
 
 ## ❓ Troubleshooting
 
@@ -77,6 +110,7 @@ Try something like:
 - Working with TrackIDs or https, make sure they aren't dead links
 - Don't forget to set up your Spotify API-Key - use http://localhost:8888/callback as redirect
 - Logs are saved to `spotify_playlist.log` for debugging
+- When using the GUI, error messages are displayed in the console output area
 
 ## 📄 License
 

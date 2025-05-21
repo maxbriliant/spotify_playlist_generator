@@ -3,14 +3,23 @@
 
 #©MxBit2025
 #Enjoy
-
+import tkinter as tk
+from tkinter import ttk, filedialog, scrolledtext, messagebox
 import os
 import sys
 import time
 import subprocess
-import tkinter as tk
-from tkinter import ttk, filedialog, scrolledtext, messagebox
 import webbrowser
+import re
+import traceback  # Add traceback for better error reporting
+
+# Enable debug logging
+DEBUG = True
+
+def debug_log(message):
+    """Print debug messages if debug mode is enabled"""
+    if DEBUG:
+        print(f"DEBUG: {message}")
 
 # Constants for the UI
 INITIAL_WINDOW_WIDTH = 600
@@ -26,12 +35,18 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         self.env_path = env_path
         self.result = False
         
+        # Track file modification time
+        self.last_modified_time = os.path.getmtime(self.env_path) if os.path.exists(self.env_path) else 0
+        
         # Configure window
         self.title("Spotify Credentials Setup")
-        self.geometry("650x500")
+        self.geometry("650x450")  # Reduced height since we're removing the preview section
         self.resizable(True, True)
-        self.minsize(650, 500)
-        self.configure(bg="#121212")
+        self.minsize(650, 450)
+        
+        # Use system default theme (light theme)
+        # No explicit background color to maintain system look
+        
         self.grab_set()  # Modal dialog
         self.transient(parent)  # Associate with parent window
         
@@ -56,6 +71,9 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         # Set focus on first entry
         self.client_id_entry.focus_set()
         
+        # Set up file monitoring - check every 500ms for changes
+        self.after(500, self.check_for_file_changes)
+        
     def create_widgets(self):
         # Main frame with padding
         main_frame = ttk.Frame(self)
@@ -73,115 +91,102 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         instructions_text = ("To use this application, you need Spotify API credentials.\n"
                            "1. Create a Spotify Developer account at developer.spotify.com\n"
                            "2. Create a new application in the dashboard\n"
-                           "3. Copy your Client ID and Client Secret below\n"
+                           "3. Copy your Client ID and Client Secret into your .env file\n"
                            "4. Set the Redirect URI exactly as shown below in your Spotify app settings")
         
         instructions_label = ttk.Label(instructions_frame, text=instructions_text,
                                     justify="left", wraplength=600)
         instructions_label.pack(anchor="w")
         
+        # Dev portal and edit .env buttons row
+        buttons_row = ttk.Frame(instructions_frame)
+        buttons_row.pack(anchor="w", pady=(10, 5))
+        
         # Dev portal link button
-        portal_button = ttk.Button(instructions_frame, text="Open Spotify Developer Portal",
+        portal_button = ttk.Button(buttons_row, text="Open Spotify Developer Portal",
                                  command=self.open_spotify_dev)
-        portal_button.pack(anchor="w", pady=(10, 5))
+        portal_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Open .env file button
+        open_env_button = ttk.Button(buttons_row, text="Open .env File in Editor",
+                                   command=self.open_env_in_editor)
+        open_env_button.pack(side=tk.LEFT)
         
         # Form frame
         form_frame = ttk.Frame(main_frame)
         form_frame.pack(fill=tk.X, pady=10)
         
-        # Client ID
+        # Client ID - read-only but selectable
         client_id_label = ttk.Label(form_frame, text="Client ID:")
         client_id_label.grid(row=0, column=0, sticky="w", pady=5)
         
         self.client_id_var = tk.StringVar()
-        self.client_id_entry = ttk.Entry(form_frame, textvariable=self.client_id_var, width=50)
+        self.client_id_entry = ttk.Entry(form_frame, textvariable=self.client_id_var, width=50, state="readonly")
         self.client_id_entry.grid(row=0, column=1, sticky="w", padx=5, pady=5)
-        
-        # Client Secret
+        copy_id_btn = ttk.Button(form_frame, text="Copy", width=5,
+                              command=lambda: self.copy_to_clipboard(self.client_id_var.get()))
+        copy_id_btn.grid(row=0, column=2, padx=5, pady=5)
+
+        # Client Secret - read-only but selectable, now visible by default without show button
         client_secret_label = ttk.Label(form_frame, text="Client Secret:")
         client_secret_label.grid(row=1, column=0, sticky="w", pady=5)
         
         self.client_secret_var = tk.StringVar()
-        self.client_secret_entry = ttk.Entry(form_frame, textvariable=self.client_secret_var, width=50, show="•")
+        # No longer using show="•" to make the secret visible by default
+        self.client_secret_entry = ttk.Entry(form_frame, textvariable=self.client_secret_var, width=50, state="readonly")
         self.client_secret_entry.grid(row=1, column=1, sticky="w", padx=5, pady=5)
         
-        # Toggle visibility button for client secret
-        self.show_secret_var = tk.BooleanVar(value=False)
-        show_secret_check = ttk.Checkbutton(form_frame, text="Show Secret", 
-                                         variable=self.show_secret_var, 
-                                         command=self.toggle_secret_visibility)
-        show_secret_check.grid(row=1, column=2, padx=5, pady=5)
+        # Copy button directly in column 2 without the show checkbox frame
+        copy_secret_btn = ttk.Button(form_frame, text="Copy", width=5,
+                                  command=lambda: self.copy_to_clipboard(self.client_secret_var.get()))
+        copy_secret_btn.grid(row=1, column=2, padx=5, pady=5)
         
-        # Redirect URI
+        # Redirect URI - read-only but selectable
         redirect_uri_label = ttk.Label(form_frame, text="Redirect URI:")
         redirect_uri_label.grid(row=2, column=0, sticky="w", pady=5)
         
         self.redirect_uri_var = tk.StringVar(value="http://127.0.0.1:8888/callback")
-        redirect_uri_entry = ttk.Entry(form_frame, textvariable=self.redirect_uri_var, width=50)
+        redirect_uri_entry = ttk.Entry(form_frame, textvariable=self.redirect_uri_var, width=50, state="readonly")
         redirect_uri_entry.grid(row=2, column=1, sticky="w", padx=5, pady=5)
         
-        # Copy button for URI
-        copy_uri_button = ttk.Button(form_frame, text="Copy", command=self.copy_redirect_uri)
-        copy_uri_button.grid(row=2, column=2, padx=5, pady=5)
+        copy_uri_btn = ttk.Button(form_frame, text="Copy", width=5,
+                               command=self.copy_redirect_uri)
+        copy_uri_btn.grid(row=2, column=2, padx=5, pady=5)
         
         # Note about redirect URI
-        uri_note_label = ttk.Label(form_frame, text="Important: Use exactly this Redirect URI in your Spotify app settings", 
-                                foreground="#1DB954")
-        uri_note_label.grid(row=3, column=1, sticky="w", padx=5, pady=(0, 10))
+        note_label = ttk.Label(form_frame, text="* Must match exactly what's in your Spotify App settings",
+                             font=("Helvetica", 9, "italic"))
+        note_label.grid(row=3, column=1, sticky="w", padx=5, pady=(0, 10))
         
-        # Add a button to edit .env directly in a text editor
-        edit_env_button = tk.Button(form_frame, text="Open .env in Text Editor", 
-                                bg="#333333", fg="white",
-                                activebackground="#555555", activeforeground="white",
-                                font=("Helvetica", 10),
-                                padx=10, pady=5,
-                                command=self.open_env_in_editor)
-        edit_env_button.grid(row=4, column=1, sticky="w", padx=5, pady=5)
+        # Buttons frame
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill=tk.X, pady=20)
         
-        # Screenshots or extra help info could be added here
-        help_frame = ttk.Frame(main_frame)
-        help_frame.pack(fill=tk.X, pady=5)
-        
-        help_text = ("In your Spotify Developer Dashboard:\n"
-                   "• Click 'Edit Settings' for your app\n"
-                   "• Add the exact Redirect URI shown above\n"
-                   "• Make sure to save your changes\n\n"
-                   "The first time you create a playlist, you'll be redirected to authorize the app.")
-                   
-        help_label = ttk.Label(help_frame, text=help_text, justify="left", wraplength=600)
-        help_label.pack(fill=tk.X)
-        
-        # Button frame
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(20, 0))
-        
-        # Using custom buttons to ensure visibility with consistent styling
-        save_button = tk.Button(button_frame, text="Save Credentials", 
-                             bg="#1DB954", fg="white", 
-                             activebackground="#169c46", activeforeground="white",
-                             font=("Helvetica", 10, "bold"), 
-                             padx=10, pady=5,
-                             command=self.save_credentials)
-        save_button.pack(side=tk.RIGHT, padx=5)
-        
-        cancel_button = tk.Button(button_frame, text="Cancel", 
-                               bg="#444444", fg="white",
-                               activebackground="#666666", activeforeground="white",
-                               font=("Helvetica", 10), 
-                               padx=10, pady=5,
-                               command=self.cancel)
+        cancel_button = ttk.Button(buttons_frame, text="Cancel",
+                                 command=self.cancel)
         cancel_button.pack(side=tk.RIGHT, padx=5)
-    
+        
+        save_button = ttk.Button(buttons_frame, text="Edit Credentials",
+                               command=self.open_env_in_editor)
+        save_button.pack(side=tk.RIGHT, padx=5)
+
+    def copy_to_clipboard(self, text):
+        """Copy the provided text to clipboard and show a brief tooltip"""
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        messagebox.showinfo("Copied", "Value copied to clipboard!")
+        
     def open_env_in_editor(self):
         """Open the .env file in system's default text editor"""
         try:
             if os.path.exists(self.env_path):
                 if sys.platform == 'win32':
                     os.startfile(self.env_path)
-                elif sys.platform == 'darwin':  # macOS
-                    subprocess.call(['open', self.env_path])
-                else:  # Linux and other Unix-like
-                    subprocess.call(['xdg-open', self.env_path])
+                elif sys.platform == 'darwin':
+                    subprocess.run(['open', self.env_path])                    
+                else:
+                    subprocess.run(['xdg-open', self.env_path])
+                    
                 messagebox.showinfo("Text Editor", "Opening .env file in your text editor.\nAfter editing, save the file and click 'Save Credentials' to apply changes.")
             else:
                 with open(self.env_path, "w") as f:
@@ -189,26 +194,27 @@ class SpotifyCredentialsDialog(tk.Toplevel):
                     f.write("SPOTIPY_CLIENT_ID=\n")
                     f.write("SPOTIPY_CLIENT_SECRET=\n")
                     f.write("SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback\n")
+                    
                 self.open_env_in_editor()  # Retry opening after creating
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open .env file: {str(e)}")
         
     def toggle_secret_visibility(self):
-        """Toggle between showing and hiding the client secret"""
+        """Toggle visibility of the client secret"""
         if self.show_secret_var.get():
             self.client_secret_entry.config(show="")
         else:
             self.client_secret_entry.config(show="•")
     
     def open_spotify_dev(self):
-        """Open the Spotify Developer portal in a web browser"""
+        """Open the Spotify Developer Portal in a browser"""
         webbrowser.open("https://developer.spotify.com/dashboard")
     
     def copy_redirect_uri(self):
-        """Copy the redirect URI to the clipboard"""
+        """Copy the redirect URI to clipboard"""
         self.clipboard_clear()
         self.clipboard_append(self.redirect_uri_var.get())
-        messagebox.showinfo("Copied", "Redirect URI copied to clipboard")
+        messagebox.showinfo("Copied", "Redirect URI copied to clipboard.\n\nRemember to add this exact URI to your Spotify App settings.")
     
     def load_existing_credentials(self):
         """Load existing credentials from .env file if it exists"""
@@ -216,20 +222,15 @@ class SpotifyCredentialsDialog(tk.Toplevel):
             if os.path.exists(self.env_path):
                 with open(self.env_path, "r") as f:
                     for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#"):
-                            if "SPOTIPY_CLIENT_ID=" in line:
-                                client_id = line.replace("SPOTIPY_CLIENT_ID=", "", 1).strip()
-                                if client_id and client_id != "your_client_id_here":
-                                    self.client_id_var.set(client_id)
-                            elif "SPOTIPY_CLIENT_SECRET=" in line:
-                                client_secret = line.replace("SPOTIPY_CLIENT_SECRET=", "", 1).strip()
-                                if client_secret and client_secret != "your_client_secret_here":
-                                    self.client_secret_var.set(client_secret)
-                            elif "SPOTIPY_REDIRECT_URI=" in line:
-                                redirect_uri = line.replace("SPOTIPY_REDIRECT_URI=", "", 1).strip()
-                                if redirect_uri:
-                                    self.redirect_uri_var.set(redirect_uri)
+                        if line.startswith("SPOTIPY_CLIENT_ID="):
+                            _, value = line.strip().split("=", 1)
+                            self.client_id_var.set(value)
+                        elif line.startswith("SPOTIPY_CLIENT_SECRET="):
+                            _, value = line.strip().split("=", 1)
+                            self.client_secret_var.set(value)
+                        elif line.startswith("SPOTIPY_REDIRECT_URI="):
+                            _, value = line.strip().split("=", 1)
+                            self.redirect_uri_var.set(value)
         except Exception as e:
             print(f"Error loading credentials: {e}")
     
@@ -240,79 +241,118 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         redirect_uri = self.redirect_uri_var.get().strip()
         
         if not client_id or not client_secret:
-            messagebox.showwarning("Incomplete Information", 
-                                "Please enter both Client ID and Client Secret")
+            messagebox.showwarning("Missing Information", "Please enter both Client ID and Client Secret.")
             return
         
+        if not redirect_uri:
+            redirect_uri = "http://127.0.0.1:8888/callback"
+            
         try:
             with open(self.env_path, "w") as f:
-                f.write("# Spotify API Credentials\n")
+                f.write("# Spotify API Credentials - Fill these values!\n")
                 f.write(f"SPOTIPY_CLIENT_ID={client_id}\n")
                 f.write(f"SPOTIPY_CLIENT_SECRET={client_secret}\n")
                 f.write(f"SPOTIPY_REDIRECT_URI={redirect_uri}\n")
-            
+                
             messagebox.showinfo("Success", "Credentials saved successfully!")
             self.result = True
             self.destroy()
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save credentials: {str(e)}")
     
     def cancel(self):
-        """Cancel the dialog"""
+        """Cancel and close the dialog"""
         self.result = False
         self.destroy()
+
+    def update_preview(self, *args):
+        """Update the preview text with current values"""
+        client_id = self.client_id_var.get().strip()
+        client_secret = self.client_secret_var.get().strip()
+        redirect_uri = self.redirect_uri_var.get().strip()
+        
+        # Update preview text - ensuring it's visible and usable for copy/paste
+        self.preview_text.config(state=tk.NORMAL)
+        self.preview_text.delete(1.0, tk.END)
+        self.preview_text.insert(tk.END, f"SPOTIPY_CLIENT_ID={client_id}\n")
+        self.preview_text.insert(tk.END, f"SPOTIPY_CLIENT_SECRET={client_secret}\n")
+        self.preview_text.insert(tk.END, f"SPOTIPY_REDIRECT_URI={redirect_uri}\n")
+        self.preview_text.config(state=tk.DISABLED)
+
+    def check_for_file_changes(self):
+        """Check if the .env file has been modified externally and reload if so"""
+        try:
+            if os.path.exists(self.env_path):
+                current_modified_time = os.path.getmtime(self.env_path)
+                
+                if current_modified_time != self.last_modified_time:
+                    # File has been modified, reload credentials
+                    debug_log(f".env file changed. Last modified: {self.last_modified_time}, Current: {current_modified_time}")
+                    self.last_modified_time = current_modified_time
+                    self.load_existing_credentials()
+                    debug_log("Reloaded credentials from modified .env file")
+        except Exception as e:
+            debug_log(f"Error checking .env file changes: {e}")
+            
+        # Schedule the next check if dialog is still open
+        if self.winfo_exists():
+            self.after(500, self.check_for_file_changes)
 
 class SpotifyPlaylistGeneratorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Spotify Playlist Generator")
-        
-        # Set initial window size - smaller to ensure all elements are visible
         self.root.geometry(f"{INITIAL_WINDOW_WIDTH}x{INITIAL_WINDOW_HEIGHT}")
         self.root.minsize(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
         
-        # Current directory
+        # Use light theme colors
+        self.accent_color = "#1DB954"  # Spotify green
+        
+        # Configure style
+        self.style = ttk.Style()
+        try:
+            # Use the default theme (which is light on most systems)
+            pass
+        except:
+            pass
+        
+        # Track window state
+        self.expanded = False
+        
+        # Path variables
         self.current_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        # Path to virtual environment
         self.venv_dir = os.path.join(self.current_dir, "venv_spotify")
-        self.script_name = "main.py"
-        self.python_path = os.path.join(self.venv_dir, "bin", "python3")
-        
-        # Environment file path
         self.env_path = os.path.join(self.current_dir, ".env")
         
-        # Flag to track if the window is in expanded mode
-        self.is_expanded = False
+        # UI variables
+        self.playlist_name = tk.StringVar(value="")
+        self.songs_file_path = tk.StringVar(value="")
+        self.status_var = tk.StringVar(value="Ready")
         
-        # Set colors and style
-        self.bg_color = "#121212"  # Spotify dark
-        self.fg_color = "#FFFFFF"  # White text
-        self.accent_color = "#1DB954"  # Spotify green
-        self.dark_accent = "#169c46"  # Darker green for hover states
-        self.button_bg = "#1DB954"  # Button background
-        self.button_fg = "#FFFFFF"  # Button text
-        self.button_active_bg = "#169c46"  # Button when clicked
+        # Recent files history (could be loaded from config)
+        self.recent_files = []
         
-        # Apply dark theme to the root window
-        self.root.configure(bg=self.bg_color)
-        
-        # Create style for ttk widgets
-        self.style = ttk.Style()
-        self.style.theme_use('default')
-        
-        # Configure widget styles
-        self.style.configure('TLabel', background=self.bg_color, foreground=self.fg_color, font=('Helvetica', 11))
-        self.style.configure('TFrame', background=self.bg_color)
-        self.style.configure('TEntry', fieldbackground="#333333", foreground=self.fg_color)
-        self.style.configure('TCombobox', fieldbackground="#333333", foreground=self.fg_color)
-        
-        # Check environment before creating widgets
-        if not os.path.exists(self.venv_dir):
-            self.run_installation()
-        
-        # Now create the main UI
+        # Create widgets
         self.create_widgets()
+        
+        # Check environment on startup
+        self.root.after(500, self.check_environment)
+        
+        # Set up resize handling
+        self.root.bind("<Configure>", self.on_resize)
+        
+        # Create right-click menu for console
+        self.console_menu = tk.Menu(self.root, tearoff=0)
+        self.console_menu.add_command(label="Copy Selected", command=self.copy_selected_text)
+        self.console_menu.add_command(label="Copy All", command=self.copy_all_text)
+        self.console_menu.add_separator()
+        self.console_menu.add_command(label="Select All", command=self.select_all_text)
+        self.console_menu.add_separator()
+        self.console_menu.add_command(label="Clear Console", command=self.clear_console)
+        
+        # Bind right-click to console
+        self.console.bind("<Button-3>", self.show_context_menu)
     
     def run_installation(self):
         """Run the installation script to set up the environment"""
@@ -409,328 +449,270 @@ class SpotifyPlaylistGeneratorGUI:
             return False
         
     def create_widgets(self):
-        """Create the main application UI"""
-        # Main container with padding that will resize properly
-        self.main_frame = ttk.Frame(self.root)
-        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Main frame
+        main_frame = ttk.Frame(self.root)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Title label with Spotify logo-like styling
-        title_frame = tk.Frame(self.main_frame, bg=self.bg_color)
-        title_frame.pack(fill=tk.X, pady=(0, 15))  # Reduced padding
+        # Header - Spotify Logo or Text
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill=tk.X, pady=5)
         
-        title_label = tk.Label(title_frame, text="SPOTIFY", 
-                              font=('Helvetica', 18, 'bold'),  # Smaller font size
-                              fg=self.accent_color, bg=self.bg_color)
-        title_label.pack()
+        header_label = ttk.Label(header_frame, text="Spotify Playlist Generator", 
+                              font=("Helvetica", 16, "bold"), foreground="#1DB954")
+        header_label.pack(side=tk.LEFT)
         
-        subtitle_label = tk.Label(title_frame, text="Playlist Generator",
-                                 font=('Helvetica', 14),  # Smaller font size
-                                 fg=self.fg_color, bg=self.bg_color)
-        subtitle_label.pack(pady=(0, 5))  # Reduced padding
-        
-        # Input frame
-        input_frame = ttk.Frame(self.main_frame)
-        input_frame.pack(fill=tk.X, pady=5)  # Reduced padding
-        
-        # Use grid layout for better alignment
-        input_frame.columnconfigure(1, weight=1)  # Make second column expandable
-        
-        # Playlist name input
-        playlist_label = ttk.Label(input_frame, text="Playlist Name:")
-        playlist_label.grid(row=0, column=0, sticky=tk.W, pady=5)
-        
-        self.playlist_name = tk.StringVar()
-        self.playlist_entry = ttk.Entry(input_frame, textvariable=self.playlist_name, width=30)  # Smaller width
-        self.playlist_entry.grid(row=0, column=1, sticky=tk.W+tk.E, padx=5, pady=5)
-        
-        # Add focus out event to ensure the StringVar is updated
-        self.playlist_entry.bind("<FocusOut>", lambda e: self.update_playlist_name())
-        
-        # Song file selection with combobox for recent files and browse button
-        songs_label = ttk.Label(input_frame, text="Songs File:")
-        songs_label.grid(row=1, column=0, sticky=tk.W, pady=5)
-        
-        self.songs_file_path = tk.StringVar()
-        
-        # File selection frame
-        file_selection_frame = ttk.Frame(input_frame)
-        file_selection_frame.grid(row=1, column=1, sticky=tk.W+tk.E, padx=5, pady=5)
-        
-        file_selection_frame.columnconfigure(0, weight=1)  # Make combobox expandable
-        
-        # Combobox for recent files
-        self.file_combobox = ttk.Combobox(file_selection_frame, textvariable=self.songs_file_path)
-        self.file_combobox.grid(row=0, column=0, sticky=tk.W+tk.E, padx=(0, 5))
-        
-        # Populate with recent song files if any
-        self.populate_recent_files()
-        
-        # Browse button using native tk.Button for consistent appearance
-        browse_button = tk.Button(file_selection_frame, text="Browse", 
-                               bg=self.button_bg, fg=self.button_fg,
-                               activebackground=self.button_active_bg, activeforeground=self.button_fg,
-                               font=("Helvetica", 10),
-                               command=self.browse_file)
-        browse_button.grid(row=0, column=1)
-        
-        # Console output frame - initially smaller
-        console_frame = ttk.Frame(self.main_frame)
-        console_frame.pack(fill=tk.BOTH, expand=True, pady=5)  # Reduced padding
-        
-        console_label = ttk.Label(console_frame, text="Console Output:")
-        console_label.pack(anchor=tk.W)
-        
-        # Create a frame to contain the console with controlled height
-        console_container = ttk.Frame(console_frame)
-        console_container.pack(fill=tk.BOTH, expand=True)
-        
-        # Make console text selectable and copyable
-        self.console = scrolledtext.ScrolledText(console_container, bg="#333333", fg=self.fg_color,
-                                              font=("Consolas", 10), height=5)  # Set initial height to smaller value
-        self.console.pack(fill=tk.BOTH, expand=True)
-        
-        # Configure tags for the console text but allow selection
-        self.console.tag_configure("readonly", background="#333333", foreground=self.fg_color)
-        # Only prevent typing, but allow selection (Ctrl+A, Ctrl+C)
-        def handle_key(event):
-            # Allow copy/paste shortcuts
-            if hasattr(event, 'state') and isinstance(event.state, int) and event.state & 0x4 and event.keysym in ("c", "C", "a", "A"):
-                return None  # Allow the event
-            return "break"  # Block typing
-        
-        self.console.bind("<Key>", handle_key)
-        
-        # Store reference to console container for resizing
-        self.console_container = console_container
-        
-        # Button frame - ensures buttons are always visible
-        button_frame = tk.Frame(self.main_frame, bg=self.bg_color)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
-        
-        # Using native tk buttons for consistent appearance and ensuring they're always visible
-        self.create_button = tk.Button(button_frame, text="Create Playlist", 
-                                   bg=self.accent_color, fg=self.button_fg,
-                                   activebackground=self.button_active_bg, activeforeground=self.button_fg,
-                                   font=("Helvetica", 12, "bold"),
-                                   padx=15, pady=5,  # Reduced padding
-                                   command=self.create_playlist)
-        self.create_button.pack(side=tk.RIGHT, padx=5)
-        
-        clear_button = tk.Button(button_frame, text="Clear Console", 
-                              bg="#444444", fg=self.fg_color,
-                              activebackground="#666666", activeforeground=self.fg_color,
-                              font=("Helvetica", 10),
-                              padx=10, pady=5,
-                              command=self.clear_console)
-        clear_button.pack(side=tk.RIGHT, padx=5)
-        
-        # Add config button for credentials
-        config_button = tk.Button(button_frame, text="Configure API Keys", 
-                               bg="#333333", fg=self.fg_color,
-                               activebackground="#555555", activeforeground=self.fg_color,
-                               font=("Helvetica", 10),
-                               padx=10, pady=5,
+        # Setup button for credentials
+        creds_button = ttk.Button(header_frame, text="Setup Credentials", 
                                command=self.show_credentials_dialog)
-        config_button.pack(side=tk.LEFT, padx=5)
+        creds_button.pack(side=tk.RIGHT)
         
-        # Close button
-        close_button = tk.Button(button_frame, text="Close", 
-                              bg="#E74C3C", fg="white",
-                              activebackground="#C0392B", activeforeground="white",
-                              font=("Helvetica", 10),
-                              padx=10, pady=5,
-                              command=self.root.destroy)
-        close_button.pack(side=tk.LEFT, padx=5)
+        # Form frame - for inputs
+        form_frame = ttk.Frame(main_frame)
+        form_frame.pack(fill=tk.X, pady=10)
         
-        # Right-click context menu for copy operations in console
-        self.console_menu = tk.Menu(self.console, tearoff=0)
-        self.console_menu.add_command(label="Copy", command=self.copy_selected_text)
-        self.console_menu.add_command(label="Copy All", command=self.copy_all_text)
-        self.console_menu.add_separator()
-        self.console_menu.add_command(label="Select All", command=self.select_all_text)
+        # Playlist name
+        playlist_label = ttk.Label(form_frame, text="Playlist Name:")
+        playlist_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
         
-        # Bind right-click to open context menu
-        self.console.bind("<Button-3>", self.show_context_menu)
+        self.playlist_entry = ttk.Entry(form_frame, textvariable=self.playlist_name, width=40)
+        self.playlist_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+        self.playlist_entry.bind("<FocusOut>", self.update_playlist_name)
         
-        # Status bar
-        self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
-        status_bar = tk.Label(self.root, textvariable=self.status_var, 
-                           bg="#333333", fg=self.fg_color,
-                           relief=tk.SUNKEN, anchor=tk.W)
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        # Songs file
+        songs_label = ttk.Label(form_frame, text="Songs File:")
+        songs_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
         
-        # Bind window resize event to update layout
-        self.root.bind("<Configure>", self.on_resize)
+        songs_frame = ttk.Frame(form_frame)
+        songs_frame.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
         
-        # Check environment on startup
-        self.root.after(100, self.check_environment)
+        songs_entry = ttk.Entry(songs_frame, textvariable=self.songs_file_path, width=32)
+        songs_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        browse_button = ttk.Button(songs_frame, text="Browse", width=8,
+                                command=self.browse_file)
+        browse_button.pack(side=tk.RIGHT, padx=(5, 0))
+        
+        # Recent files section if we have any
+        if self.recent_files:
+            recent_label = ttk.Label(form_frame, text="Recent:")
+            recent_label.grid(row=2, column=0, sticky="w", padx=5, pady=0)
+            
+            # Function to create a command with file path
+            def make_select_command(file_path):
+                return lambda: self.songs_file_path.set(file_path)
+            
+            recent_frame = ttk.Frame(form_frame)
+            recent_frame.grid(row=2, column=1, sticky="ew", padx=5, pady=0)
+            
+            for i, file_path in enumerate(self.recent_files[:3]):
+                file_name = os.path.basename(file_path)
+                btn = ttk.Button(recent_frame, text=file_name, 
+                              command=make_select_command(file_path),
+                              style="Recent.TButton", width=10)
+                btn.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Configure grid column weights
+        form_frame.grid_columnconfigure(1, weight=1)
+        
+        # Action buttons frame
+        actions_frame = ttk.Frame(main_frame)
+        actions_frame.pack(fill=tk.X, pady=10)
+        
+        # Status label
+        status_label = ttk.Label(actions_frame, textvariable=self.status_var)
+        status_label.pack(side=tk.LEFT)
+        
+        # Create button
+        self.create_button = ttk.Button(actions_frame, text="Generate Playlist", 
+                                     style="Accent.TButton", width=15,
+                                     command=self.create_playlist)
+        self.create_button.pack(side=tk.RIGHT)
+        
+        # Console frame with output log
+        console_frame = ttk.LabelFrame(main_frame, text="Console Output")
+        console_frame.pack(fill=tk.BOTH, expand=True, pady=(10, 0))
+        
+        # Console text widget with scrollbar - use light theme colors
+        self.console = scrolledtext.ScrolledText(console_frame, wrap=tk.WORD, height=CONSOLE_MIN_HEIGHT,
+                                             width=70, bg="#F8F8F8", fg="#333333", font=("Consolas", 9))
+        self.console.pack(fill=tk.BOTH, expand=True, padx=2, pady=5)
+        self.console.config(state=tk.DISABLED)
+        
+        # Resize handle
+        resize_frame = ttk.Frame(main_frame, height=5, cursor="sb_v_double_arrow")
+        resize_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        resize_frame.bind("<ButtonPress-1>", lambda e: self.expand_window() if not self.expanded else self.shrink_window())
     
     def copy_selected_text(self):
-        """Copy selected text to clipboard"""
+        """Copy selected text from console to clipboard"""
         try:
             selected_text = self.console.get(tk.SEL_FIRST, tk.SEL_LAST)
             self.root.clipboard_clear()
             self.root.clipboard_append(selected_text)
-        except tk.TclError:  # No selection
-            pass
+        except tk.TclError:
+            pass  # No selection
     
     def copy_all_text(self):
-        """Copy all console text to clipboard"""
+        """Copy all text from console to clipboard"""
         all_text = self.console.get(1.0, tk.END)
         self.root.clipboard_clear()
         self.root.clipboard_append(all_text)
     
     def select_all_text(self):
-        """Select all console text"""
+        """Select all text in the console"""
         self.console.tag_add(tk.SEL, "1.0", tk.END)
         self.console.mark_set(tk.INSERT, "1.0")
         self.console.see(tk.INSERT)
-        return "break"
     
     def show_context_menu(self, event):
-        """Show the context menu on right-click"""
+        """Show the right-click context menu"""
         self.console_menu.tk_popup(event.x_root, event.y_root)
     
     def on_resize(self, event=None):
-        """Handle window resize to ensure UI elements remain properly sized"""
-        # Only handle if it's the root window being resized
-        if event and event.widget != self.root:
-            return
-        
-        # Update combobox width based on window size
-        try:
-            window_width = self.root.winfo_width()
-            if window_width > 0:
-                # Calculate appropriate combobox width
-                combobox_width = max(20, int((window_width - 200) / 12))
-                self.file_combobox.config(width=combobox_width)
-        except Exception:
-            pass  # Ignore any errors during resize
+        """Handle window resize events"""
+        if event and event.widget == self.root:
+            # Only respond when the entire window resizes, not when child widgets resize
+            current_height = self.root.winfo_height()
+            if current_height > INITIAL_WINDOW_HEIGHT + 50:  # Allow some buffer
+                self.expanded = True
+            else:
+                self.expanded = False
     
     def expand_window(self):
-        """Expand the window when generating a playlist"""
-        if not self.is_expanded:
-            # Save current scroll position
-            try:
-                scroll_pos = self.console.yview()[0]
-            except:
-                scroll_pos = 0
-                
-            # Resize the window
-            self.root.geometry(f"{INITIAL_WINDOW_WIDTH}x{EXPANDED_WINDOW_HEIGHT}")
-            
-            # Give console more height
-            self.console.config(height=CONSOLE_EXPANDED_HEIGHT // 20)  # Approximate line count
-            
-            # Restore scroll position
-            self.console.yview_moveto(scroll_pos)
-            
-            self.is_expanded = True
+        """Expand the window to show more console output"""
+        if not self.expanded:
+            self.root.geometry(f"{self.root.winfo_width()}x{EXPANDED_WINDOW_HEIGHT}")
+            self.expanded = True
     
     def shrink_window(self):
         """Shrink the window back to normal size"""
-        if self.is_expanded:
-            # Save current scroll position
-            try:
-                scroll_pos = self.console.yview()[0]
-            except:
-                scroll_pos = 0
-                
-            # Resize the window
-            self.root.geometry(f"{INITIAL_WINDOW_WIDTH}x{INITIAL_WINDOW_HEIGHT}")
-            
-            # Give console less height
-            self.console.config(height=5)  # Smaller height
-            
-            # Restore scroll position
-            self.console.yview_moveto(scroll_pos)
-            
-            self.is_expanded = False
+        if self.expanded:
+            self.root.geometry(f"{self.root.winfo_width()}x{INITIAL_WINDOW_HEIGHT}")
+            self.expanded = False
     
-    def update_playlist_name(self):
-        """Ensures that the playlist_name StringVar is correctly updated when focus changes"""
-        # Get the current content of the entry field
-        current_value = self.playlist_entry.get().strip()
-        # Force update the StringVar
-        self.playlist_name.set(current_value)
-        # Debug output if needed
-        # print(f"Updated playlist name: '{current_value}'")
-        return current_value
+    def update_playlist_name(self, event=None):
+        """Update the playlist name variable when focus changes"""
+        # This ensures the StringVar is updated even if Enter isn't pressed
+        current_name = self.playlist_entry.get().strip()
+        self.playlist_name.set(current_name)
         
     def populate_recent_files(self):
-        """Populate the combobox with recent song files"""
-        # Current directory files
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        txt_files = [f for f in os.listdir(current_dir) if f.endswith('.txt')]
-        
-        # Default songs.txt if it exists
-        if 'songs.txt' in txt_files:
-            default_path = os.path.join(current_dir, 'songs.txt')
-            self.songs_file_path.set(default_path)
+        """Load recent files from a config file or similar and preload the first one"""
+        try:
+            self.recent_files = []
+            default_songs_file = os.path.join(self.current_dir, "songs.txt")
             
-        # Add all txt files to the dropdown
-        file_paths = [os.path.join(current_dir, f) for f in txt_files]
-        self.file_combobox['values'] = file_paths
+            # If songs.txt exists in the current directory, add it as the default
+            if os.path.exists(default_songs_file):
+                self.recent_files.append(default_songs_file)
+                # Preload the songs file path in the UI
+                self.songs_file_path.set(default_songs_file)
+                # Start monitoring this file for changes
+                self.start_file_monitoring(default_songs_file)
+                
+            # Add any other .txt files to the recent files list
+            for file in os.listdir(self.current_dir):
+                if file.endswith(".txt") and file != "songs.txt" and os.path.isfile(os.path.join(self.current_dir, file)):
+                    # Add up to 3 recent text files
+                    if len(self.recent_files) < 3:
+                        self.recent_files.append(os.path.join(self.current_dir, file))
+        except Exception as e:
+            debug_log(f"Error populating recent files: {e}")
+            pass  # Ignore errors in populating recent files
+            
+    def start_file_monitoring(self, file_path):
+        """Start monitoring a file for changes"""
+        if hasattr(self, 'monitored_file'):
+            # Cancel any existing monitoring
+            if hasattr(self, 'monitoring_job') and self.monitoring_job:
+                self.root.after_cancel(self.monitoring_job)
+                self.monitoring_job = None
         
-        # Try to automatically select songs.txt
-        if file_paths and 'songs.txt' in txt_files:
-            self.file_combobox.current(txt_files.index('songs.txt'))
+        self.monitored_file = file_path
+        self.last_modified_time = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
+        
+        # Start the monitoring job
+        self.monitoring_job = self.root.after(1000, self.check_file_changes)
+        
+    def check_file_changes(self):
+        """Check if the monitored file has changed"""
+        try:
+            if hasattr(self, 'monitored_file') and os.path.exists(self.monitored_file):
+                current_modified_time = os.path.getmtime(self.monitored_file)
+                
+                if current_modified_time != self.last_modified_time:
+                    # File has been modified
+                    self.last_modified_time = current_modified_time
+                    debug_log(f"Detected change in file: {self.monitored_file}")
+                    
+                    # If this is the currently selected file, update the UI to reflect changes
+                    if self.monitored_file == self.songs_file_path.get():
+                        self.status_var.set("File updated externally")
+                        messagebox.showinfo("File Updated", 
+                                          f"The file {os.path.basename(self.monitored_file)} has been updated externally.")
+        except Exception as e:
+            debug_log(f"Error checking file changes: {e}")
+        
+        # Reschedule the check
+        self.monitoring_job = self.root.after(1000, self.check_file_changes)
     
     def browse_file(self):
-        """Open file browser to select a songs file"""
-        filepath = filedialog.askopenfilename(
+        """Open file dialog to select a songs file"""
+        file_path = filedialog.askopenfilename(
             title="Select Songs File",
-            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+            filetypes=[
+                ("Text files", "*.txt"),
+                ("All files", "*.*")
+            ],
+            initialdir=self.current_dir
         )
         
-        if filepath:
-            self.songs_file_path.set(filepath)
+        if file_path:
+            self.songs_file_path.set(file_path)
+            
+            # Start monitoring the new file for changes
+            self.start_file_monitoring(file_path)
             
             # Add to recent files if not already there
-            current_values = list(self.file_combobox['values'])
-            if filepath not in current_values:
-                current_values.append(filepath)
-                self.file_combobox['values'] = current_values
+            if file_path not in self.recent_files:
+                self.recent_files.insert(0, file_path)
+                if len(self.recent_files) > 3:
+                    self.recent_files.pop()
     
     def check_environment(self):
-        """Check if the virtual environment and dependencies are set up"""
+        """Check if the environment is set up correctly"""
         self.write_to_console("Checking environment...\n")
         
         # Check for virtual environment
-        if not os.path.exists(self.venv_dir):
-            self.write_to_console("Virtual environment not found. Please run install.py first.\n")
-            if messagebox.askyesno("Setup Required", 
-                                "Virtual environment not found. Would you like to run the installation now?"):
-                self.run_installation()
-            return False
+        venv_exists = os.path.exists(self.venv_dir)
         
-        # Check for .env file
-        if not os.path.exists(self.env_path):
-            self.write_to_console("WARNING: .env file not found. API credentials are missing.\n")
-            if messagebox.askyesno("Credentials Missing", 
-                                "The .env file with Spotify API credentials is missing. Would you like to configure it now?"):
-                self.show_credentials_dialog()
+        # Check for .env file with credentials
+        env_exists = os.path.exists(self.env_path)
+        
+        # Check for valid credentials
+        has_credentials = self.has_valid_credentials() if env_exists else False
+        
+        # Log status
+        env_status = []
+        if not venv_exists:
+            env_status.append("- Virtual environment not found")
+        if not env_exists:
+            env_status.append("- .env file with Spotify credentials not found")
+        elif not has_credentials:
+            env_status.append("- Spotify credentials need to be set up")
+            
+        if env_status:
+            self.write_to_console("Environment issues:\n")
+            for status in env_status:
+                self.write_to_console(f"{status}\n")
+                
+            if not venv_exists:
+                self.write_to_console("\nRecommended: Run setup by executing install.py\n")
+                
+            if not has_credentials:
+                self.write_to_console("\nRecommended: Click 'Setup Credentials' button\n")
         else:
-            # Check if credentials are blank/default
-            try:
-                with open(self.env_path, "r") as f:
-                    content = f.read()
-                    if "your_client_id_here" in content or "your_client_secret_here" in content:
-                        self.write_to_console("WARNING: Spotify credentials appear to be using default values.\n")
-                        if messagebox.askyesno("Credentials Missing", 
-                                            "Your Spotify API credentials appear to be using default values. Would you like to configure them now?"):
-                            self.show_credentials_dialog()
-                    elif not self.has_valid_credentials():
-                        self.write_to_console("WARNING: Spotify credentials appear to be incomplete.\n")
-                        if messagebox.askyesno("Credentials Issue", 
-                                            "Your Spotify API credentials appear to be incomplete. Would you like to configure them now?"):
-                            self.show_credentials_dialog()
-            except Exception:
-                pass  # Ignore file read errors
-        
-        self.write_to_console("Environment check completed.\n")
-        return True
+            self.write_to_console("Environment check completed.\n")
     
     def has_valid_credentials(self):
         """Check if the .env file has valid credentials"""
@@ -742,134 +724,159 @@ class SpotifyPlaylistGeneratorGUI:
             with open(self.env_path, "r") as f:
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith("#"):
-                        if "SPOTIPY_CLIENT_ID=" in line:
-                            client_id = line.replace("SPOTIPY_CLIENT_ID=", "", 1).strip()
-                        elif "SPOTIPY_CLIENT_SECRET=" in line:
-                            client_secret = line.replace("SPOTIPY_CLIENT_SECRET=", "", 1).strip()
-                        elif "SPOTIPY_REDIRECT_URI=" in line:
-                            redirect_uri = line.replace("SPOTIPY_REDIRECT_URI=", "", 1).strip()
+                    if line.startswith("SPOTIPY_CLIENT_ID="):
+                        _, client_id = line.split("=", 1)
+                    elif line.startswith("SPOTIPY_CLIENT_SECRET="):
+                        _, client_secret = line.split("=", 1)
+                    elif line.startswith("SPOTIPY_REDIRECT_URI="):
+                        _, redirect_uri = line.split("=", 1)
             
-            return client_id and client_secret and redirect_uri
+            return client_id and client_secret and redirect_uri and \
+                   client_id != "your_client_id_here" and \
+                   client_secret != "your_client_secret_here"
         except Exception:
             return False
     
     def show_credentials_dialog(self):
-        """Show the credentials configuration dialog"""
+        """Show dialog to set up Spotify API credentials"""
         dialog = SpotifyCredentialsDialog(self.root, self.env_path)
         self.root.wait_window(dialog)
-        if dialog.result:
-            self.write_to_console("Spotify API credentials updated successfully.\n")
-            return True
-        return False
+        return dialog.result
     
     def write_to_console(self, text):
         """Write text to the console widget"""
-        # Don't disable the text widget, but make it read-only with key bindings
-        self.console.insert(tk.END, text, "readonly")
+        self.console.config(state=tk.NORMAL)
+        self.console.insert(tk.END, text)
         self.console.see(tk.END)
-        self.root.update()
+        self.console.config(state=tk.DISABLED)
+        self.root.update_idletasks()
     
     def clear_console(self):
         """Clear the console output"""
+        self.console.config(state=tk.NORMAL)
         self.console.delete(1.0, tk.END)
-        
-        # Shrink the window when clearing console
-        self.shrink_window()
+        self.console.config(state=tk.DISABLED)
     
     def create_playlist(self):
         """Create a Spotify playlist using Python directly"""
-        # Important: Move focus away from any entry field to ensure the StringVar gets updated
-        self.root.focus_set()
-        
-        # Force update root to ensure all StringVar values are current
-        self.root.update_idletasks()
-        
-        # Now get the value from the StringVar
-        playlist_name = self.playlist_name.get().strip()
-        
-        # Debug output for playlist name
-        self.write_to_console(f"Playlist name entered: '{playlist_name}'\n")
-        
-        # Expand window to show more console output
-        self.expand_window()
-        
-        # Validate inputs
-        songs_file = self.songs_file_path.get().strip()
-        
-        # Double check we have the current value
-        if not playlist_name:
-            messagebox.showwarning("Input Error", "Please enter a playlist name.")
-            return
-        
-        if not songs_file or not os.path.exists(songs_file):
-            messagebox.showwarning("Input Error", "Please select a valid songs file.")
-            return
-        
-        # Check environment
-        if not os.path.exists(self.venv_dir):
-            if messagebox.askyesno("Environment Error", 
-                                "Virtual environment not found. Would you like to run the installation now?"):
-                success = self.run_installation()
-                if not success:
-                    return
-            else:
-                return
-        
-        # Check for credentials
-        if not os.path.exists(self.env_path) or not self.has_valid_credentials():
-            if not self.show_credentials_dialog():
-                return
-        
-        # Clear console
-        self.clear_console()
-        
-        # Expand window to show more console output
-        self.expand_window()
-        
-        # Update status
-        self.status_var.set("Creating playlist...")
-        self.create_button.config(state=tk.DISABLED)
-        
-        # Execute the Python script directly (skip shell script)
-        success = self._create_playlist_using_python(playlist_name, songs_file)
+        try:
+            # Important: Move focus away from any entry field to ensure the StringVar gets updated
+            self.root.focus_set()
             
-        # Reset UI state
-        self.status_var.set("Ready")
-        self.create_button.config(state=tk.NORMAL)
+            # Force update to ensure all StringVar values are current
+            self.root.update_idletasks()
+            
+            # Directly get the value from the entry widget instead of the StringVar
+            playlist_name = self.playlist_entry.get().strip()
+            
+            # Debug output for playlist name
+            debug_log(f"Got playlist name from entry: '{playlist_name}'")
+            self.write_to_console(f"Playlist name entered: '{playlist_name}'\n")
+            
+            # Expand window to show more console output
+            self.expand_window()
+            
+            # Validate inputs
+            songs_file = self.songs_file_path.get().strip()
+            
+            # Double check we have the current value
+            if not playlist_name:
+                messagebox.showwarning("Input Error", "Please enter a playlist name.")
+                return
+            
+            if not songs_file or not os.path.exists(songs_file):
+                messagebox.showwarning("Input Error", "Please select a valid songs file.")
+                return
+            
+            # Check environment
+            if not os.path.exists(self.venv_dir):
+                if messagebox.askyesno("Environment Error", 
+                                    "Virtual environment not found. Would you like to run the installation now?"):
+                    success = self.run_installation()
+                    if not success:
+                        return
+                else:
+                    return
+            
+            # Check for credentials
+            if not os.path.exists(self.env_path) or not self.has_valid_credentials():
+                if not self.show_credentials_dialog():
+                    return
+            
+            # Clear console
+            self.clear_console()
+            
+            # Expand window to show more console output
+            self.expand_window()
+            
+            # Update status
+            self.status_var.set("Creating playlist...")
+            self.create_button.config(state=tk.DISABLED)
+            
+            # Try using the shell script first since it's known to work on Linux/Mac
+            if sys.platform == 'linux' or sys.platform.startswith('darwin'):
+                script_path = os.path.join(self.current_dir, "spotylist_create.sh")
+                
+                # Verify script permissions
+                if not os.access(script_path, os.X_OK):
+                    self.write_to_console("Warning: Shell script not executable, setting permissions...\n")
+                    try:
+                        os.chmod(script_path, 0o755)  # rwxr-xr-x
+                    except Exception as e:
+                        self.write_to_console(f"Error setting permissions: {e}\n")
+                
+                if os.path.exists(script_path) and os.access(script_path, os.X_OK):
+                    self.write_to_console("Using shell script method\n")
+                    
+                    # Create a shell command with proper quoting for the arguments
+                    command_str = f"{script_path} '{playlist_name}' '{songs_file}'"
+                    debug_log(f"Shell command: {command_str}")
+                    success = self._run_command_and_process_output(["/bin/bash", "-c", command_str], playlist_name, songs_file)
+                else:
+                    self.write_to_console("Shell script not executable, falling back to Python method\n")
+                    success = self._create_playlist_using_python(playlist_name, songs_file)
+            else:
+                # For Windows and other platforms, use Python method directly
+                success = self._create_playlist_using_python(playlist_name, songs_file)
+                
+            # Reset UI state
+            self.status_var.set("Ready")
+            self.create_button.config(state=tk.NORMAL)
+        except Exception as e:
+            debug_log(f"Exception in create_playlist: {e}")
+            debug_log(traceback.format_exc())
+            self.write_to_console(f"\n❌ Error: {str(e)}\n")
+            self.status_var.set("Error")
+            self.create_button.config(state=tk.NORMAL)
     
     def _create_playlist_using_python(self, playlist_name, songs_file):
-        """Create playlist by directly calling Python (for Windows compatibility)"""
-        # Get path to Python in the virtual environment
-        if sys.platform == 'win32':
-            python_exe = os.path.join(self.venv_dir, "Scripts", "python.exe")
-        else:
-            python_exe = os.path.join(self.venv_dir, "bin", "python3")
-            
-        if not os.path.exists(python_exe):
-            # Try alternative path for Windows if the first one doesn't exist
-            if sys.platform == 'win32':
-                python_exe = os.path.join(self.venv_dir, "Scripts", "python")
-                if not os.path.exists(python_exe):
-                    messagebox.showerror("Error", "Python not found in virtual environment.")
-                    return False
+        """Execute the Python script directly"""
+        self.write_to_console("Using Python method\n")
+        
+        # Get Python path from virtual environment
+        python_path = os.path.join(self.venv_dir, "bin", "python")
+        if sys.platform == "win32":
+            python_path = os.path.join(self.venv_dir, "Scripts", "python.exe")
+        
+        if not os.path.exists(python_path):
+            # Try alternate locations
+            if sys.platform == "win32":
+                python_path = os.path.join(self.venv_dir, "Scripts", "python")
             else:
-                messagebox.showerror("Error", "Python not found in virtual environment.")
-                return False
-                
-        # Path to main script
-        main_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.script_name)
-        if not os.path.exists(main_script):
-            messagebox.showerror("Error", f"Main script {self.script_name} not found.")
+                python_path = os.path.join(self.venv_dir, "bin", "python3")
+                if not os.path.exists(python_path):
+                    python_path = sys.executable  # Fall back to system Python
+        
+        # Get path to main.py script
+        script_path = os.path.join(self.current_dir, "main.py")
+        if not os.path.exists(script_path):
+            self.write_to_console("Error: main.py script not found!\n")
             return False
-            
-        # Create command - using list form ensures proper argument handling
-        command = [python_exe, main_script, playlist_name, songs_file]
         
-        # Debug output
-        command_str = f"{python_exe} {main_script} \"{playlist_name}\" \"{songs_file}\""
-        self.write_to_console(f"Executing command: {command_str}\n")
+        # Build command
+        command = [python_path, script_path, playlist_name, songs_file]
         
+        # Execute command
         return self._run_command_and_process_output(command, playlist_name, songs_file)
     
     def _run_command_and_process_output(self, command, playlist_name, songs_file):
@@ -877,8 +884,16 @@ class SpotifyPlaylistGeneratorGUI:
         self.write_to_console(f"Starting playlist creation: {playlist_name}\n")
         self.write_to_console(f"Using songs from: {songs_file}\n\n")
         
+        # Show exact command being executed (for debugging)
+        if isinstance(command, list) and command[0] == "/bin/bash":
+            self.write_to_console(f"Command: {command[2]}\n\n")
+        else:
+            self.write_to_console(f"Command: {' '.join(str(c) for c in command) if isinstance(command, list) else command}\n\n")
+        
         # Run process
         try:
+            debug_log(f"Executing command: {command}")
+            
             # Use subprocess.Popen to capture output in real time
             process = subprocess.Popen(
                 command,
@@ -895,117 +910,193 @@ class SpotifyPlaylistGeneratorGUI:
             # Process output in real time - safely check stdout exists
             if process and process.stdout:
                 # Read line by line
-                while True:
-                    line = process.stdout.readline()
-                    if not line:  # End of stream
+                for line in iter(process.stdout.readline, ""):
+                    if not line:
                         break
+                    clean_line = line.strip()
+                    
+                    # Strip ANSI color codes from terminal output
+                    # Matches color codes like [0;33m and [0m
+                    clean_line = re.sub(r'\x1b\[\d+(;\d+)*m', '', clean_line)
+                    
+                    # Format the output to make it more readable
+                    if "Prüfe Python-Umgebung" in clean_line:
+                        self.write_to_console("\n━━━ Environment Check ━━━\n")
+                        self.write_to_console(f"{clean_line}\n")
+                    elif "Starte Playlist-Erstellung" in clean_line:
+                        self.write_to_console("\n━━━ Creating Playlist ━━━\n")
+                        self.write_to_console(f"{clean_line}\n")
+                    elif "Playlist erstellt:" in clean_line or "Playlist-Link:" in clean_line:
+                        self.write_to_console("\n━━━ Playlist Created ━━━\n")
+                        self.write_to_console(f"✅ {clean_line}\n")
                         
-                    # Process the line
-                    self.write_to_console(line)
-                    # Capture the playlist URL if it's in the output
-                    if "Playlist-Link:" in line or "https://open.spotify.com/playlist/" in line:
-                        # Extract the URL from the line
-                        if "Playlist-Link:" in line:
-                            playlist_url = line.strip().split("Playlist-Link:")[1].strip()
-                        elif "https://open.spotify.com/playlist/" in line:
-                            # Extract the URL using regex
-                            import re
-                            url_match = re.search(r'(https://open\.spotify\.com/playlist/[a-zA-Z0-9]+)', line)
-                            if url_match:
-                                playlist_url = url_match.group(1)
+                        # Extract URL
+                        url_match = re.search(r'https://open\.spotify\.com/playlist/\w+', clean_line)
+                        if url_match:
+                            playlist_url = url_match.group(0)
+                            debug_log(f"Found playlist URL: {playlist_url}")
+                    elif "Gefunden via" in clean_line:
+                        self.write_to_console(f"✓ {clean_line}\n")
+                    elif "Batch hinzugefügt:" in clean_line or "Erfolgreich" in clean_line:
+                        self.write_to_console("\n━━━ Summary ━━━\n")
+                        self.write_to_console(f"✅ {clean_line}\n")
+                    elif "Fehler:" in clean_line or "Error:" in clean_line:
+                        self.write_to_console(f"❌ {clean_line}\n")
+                    else:
+                        self.write_to_console(f"{clean_line}\n")
             else:
-                self.write_to_console("Warning: Unable to capture output stream\n")
+                self.write_to_console("Error: Could not capture process output\n")
             
             # Wait for process to complete
             if process:
-                process.wait()
-                return_code = process.returncode
+                return_code = process.wait()
+                debug_log(f"Process completed with return code: {return_code}")
             else:
                 self.write_to_console("Error: Process failed to start\n")
                 return False
             
             # Display results
             if return_code == 0:
-                success_msg = "Playlist created successfully!"
-                self.write_to_console(f"\n✅ {success_msg}\n")
+                self.write_to_console("\n✅ Playlist created successfully!\n")
                 if playlist_url:
                     self.write_to_console(f"Playlist URL: {playlist_url}\n")
-                    # Show a dialog with the URL that can be clicked
-                    if messagebox.askyesno("Success", f"{success_msg}\n\nDo you want to open the playlist in your browser?"):
+                    # Ask if user wants to open the playlist
+                    if messagebox.askyesno("Success", f"Playlist '{playlist_name}' created successfully! Open in browser?"):
                         webbrowser.open(playlist_url)
-                else:
-                    messagebox.showinfo("Success", success_msg)
                 return True
             else:
-                self.write_to_console("\n❌ Error creating playlist\n")
-                messagebox.showerror("Error", "Failed to create playlist. See console for details.")
+                self.write_to_console(f"\n❌ Error: Process exited with code {return_code}\n")
+                messagebox.showerror("Error", f"Failed to create playlist. Exit code: {return_code}")
                 return False
         
         except Exception as e:
+            debug_log(f"Exception in _run_command_and_process_output: {e}")
+            debug_log(traceback.format_exc())
             self.write_to_console(f"\n❌ Error: {str(e)}\n")
+            
+            # If shell script fails, try Python method directly instead of showing error
+            if sys.platform == 'linux' or sys.platform.startswith('darwin'):
+                if isinstance(command, list) and len(command) > 0 and command[0] == "/bin/bash":
+                    self.write_to_console("\nTrying alternative method with Python...\n")
+                    return self._create_playlist_using_python(playlist_name, songs_file)
+            
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
             return False
 
 def create_splash_screen():
     """Create a splash screen while the app loads"""
     splash = tk.Tk()
-    splash.overrideredirect(True)
+    
+    # Configure the splash window
+    splash.withdraw()  # Hide initially to prevent flicker
+    splash.title("")
+    splash.overrideredirect(True)  # No window decorations
+    
+    # Calculate position
     screen_width = splash.winfo_screenwidth()
     screen_height = splash.winfo_screenheight()
-    
-    width = 350  # Smaller splash screen
+    width = 350  # Splash screen dimensions
     height = 180
     x = (screen_width - width) // 2
     y = (screen_height - height) // 2
     
+    # Set geometry and styling
     splash.geometry(f'{width}x{height}+{x}+{y}')
     splash.configure(bg="#121212")  # Spotify dark background
     
-    # Spotify-like logo placeholder
+    # Create the content frame
     frame = tk.Frame(splash, bg="#121212", padx=20, pady=20)
     frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
     
-    label = tk.Label(frame, text="SPOTIFY", font=("Helvetica", 22, "bold"), fg="#1DB954", bg="#121212")
+    # Add Spotify-like logo as text
+    label = tk.Label(frame, text="SPOTIFY", font=("Helvetica", 22, "bold"), 
+                   fg="#1DB954", bg="#121212")
     label.pack()
     
-    label2 = tk.Label(frame, text="Playlist Generator", font=("Helvetica", 14), fg="white", bg="#121212")
+    label2 = tk.Label(frame, text="Playlist Generator", font=("Helvetica", 14), 
+                    fg="white", bg="#121212")
     label2.pack()
     
-    # Custom progress bar
-    progress_frame = tk.Frame(frame, bg="#121212", height=10, width=250)  # Smaller progress bar
+    # Create progress bar
+    progress_frame = tk.Frame(frame, bg="#121212", height=10, width=250)
     progress_frame.pack(pady=15)
     
     progress_bar = tk.Canvas(progress_frame, width=250, height=8, bg="#333333", 
                           highlightthickness=0)
     progress_bar.pack()
     
-    # Create animated progress effect
-    progress_value = 0
-    bar_id = progress_bar.create_rectangle(0, 0, 0, 8, fill="#1DB954", width=0)
+    # Draw progress bar and initialize variables for animation
+    progress_position = [0]  # Use list for mutable reference
+    bar = progress_bar.create_rectangle(0, 0, 0, 8, fill="#1DB954", width=0)
     
-    def update_progress():
-        nonlocal progress_value
-        progress_value += 5
-        if progress_value > 250:
-            progress_value = 0
-        progress_bar.coords(bar_id, 0, 0, progress_value, 8)
-        splash.after(30, update_progress)
+    # Safe animation function
+    def animate_progress():
+        # Only proceed if splash still exists and hasn't been destroyed
+        if not splash.winfo_exists():
+            return
+            
+        # Update progress position
+        progress_position[0] = (progress_position[0] + 5) % 250
+        try:
+            progress_bar.coords(bar, 0, 0, progress_position[0], 8)
+            # Store timer ID so it can be canceled
+            if hasattr(splash, 'timer_id'):
+                splash.timer_id = splash.after(30, animate_progress)
+        except tk.TclError:
+            # Canvas was already destroyed, do nothing
+            pass
     
-    update_progress()
+    # Create cleanup function
+    def cleanup():
+        """Safely cancel animation timer"""
+        try:
+            if hasattr(splash, 'timer_id') and splash.timer_id:
+                splash.after_cancel(splash.timer_id)
+                splash.timer_id = None
+        except Exception:
+            pass
+    
+    # Attach cleanup method to splash window
+    splash.cleanup = cleanup
+    
+    # Initialize timer ID storage
+    splash.timer_id = None
+    
+    # Show splash and start animation
+    splash.deiconify()
     splash.update()
+    splash.timer_id = splash.after(30, animate_progress)
+    
     return splash
 
 def main():
+    splash = None
+    root = None
     try:
-        # Show splash screen
+        debug_log("Starting application...")
+        
+        # Create and show splash screen
         splash = create_splash_screen()
         
         # Simulate loading time
-        time.sleep(1.2)  # Shorter loading time
+        time.sleep(1.2)
         
-        # Initialize main app
+        # Initialize main app - make sure to destroy splash before creating root
+        if splash and splash.winfo_exists():
+            try:
+                if hasattr(splash, 'cleanup'):
+                    splash.cleanup()
+                splash.destroy()
+                splash = None
+            except Exception as e:
+                debug_log(f"Error during splash cleanup: {e}")
+        
+        # Now create the main application window
         root = tk.Tk()
         app = SpotifyPlaylistGeneratorGUI(root)
+        
+        # Make sure to load any recent files for the UI
+        app.populate_recent_files()
         
         # Center the main window
         screen_width = root.winfo_screenwidth()
@@ -1014,13 +1105,30 @@ def main():
         y = (screen_height - INITIAL_WINDOW_HEIGHT) // 2
         root.geometry(f"+{x}+{y}")
         
-        # Close splash and show main app
-        splash.destroy()
+        # Start the application main loop
+        debug_log("Starting main application loop")
         root.mainloop()
-    
+        
     except Exception as e:
-        messagebox.showerror("Error", f"An error occurred: {str(e)}")
-        print(f"Error: {str(e)}")
+        debug_log(f"Error in main: {e}")
+        debug_log(traceback.format_exc())
+        if root and root.winfo_exists():
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        else:
+            print(f"Error: {str(e)}")
+        
+    finally:
+        # Final cleanup for both windows
+        for window in [splash, root]:
+            if window and hasattr(window, 'winfo_exists') and window.winfo_exists():
+                try:
+                    debug_log(f"Cleaning up window in finally block")
+                    if hasattr(window, 'cleanup'):
+                        window.cleanup()
+                    window.destroy()
+                except Exception as e:
+                    debug_log(f"Final cleanup error: {e}")
+                    pass
 
 if __name__ == "__main__":
     main()
