@@ -910,13 +910,15 @@ class ModernSpotifyGUI:
 
     def _create_playlist_thread(self, playlist_name, songs_file):
         try:
-            venv_python = os.path.join(self.venv_dir, "bin", "python")
+            # Robust venv Python selection for all platforms
+            venv_python = os.path.join(self.current_dir, "venv_spotify", "bin", "python")
+            if sys.platform == "win32":
+                venv_python = os.path.join(self.current_dir, "venv_spotify", "Scripts", "python.exe")
             if not os.path.exists(venv_python):
-                venv_python = sys.executable  # Fallback
+                # Only fallback if both venv paths are missing
+                venv_python = sys.executable
             script_path = os.path.join(self.current_dir, "main.py")
             command = [venv_python, script_path, playlist_name, songs_file]
-            # Remove [DEBUG] output
-            # self.write_to_console(f"[DEBUG] Running: {' '.join(command)}\n", 'warning')
             success = self._run_command_and_process_output(command, playlist_name, songs_file)
             if not success:
                 self.write_to_console("\n❌ Playlist generation failed. See above for details.\n", 'error')

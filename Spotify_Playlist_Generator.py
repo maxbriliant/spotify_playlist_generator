@@ -935,19 +935,13 @@ class SpotifyPlaylistGeneratorGUI:
         """Execute the Python script directly"""
         self.write_to_console("Using Python method\n")
         
-        # Get Python path from virtual environment
+        # Robust venv Python selection for all platforms
         python_path = os.path.join(self.venv_dir, "bin", "python")
         if sys.platform == "win32":
             python_path = os.path.join(self.venv_dir, "Scripts", "python.exe")
-        
         if not os.path.exists(python_path):
-            # Try alternate locations
-            if sys.platform == "win32":
-                python_path = os.path.join(self.venv_dir, "Scripts", "python")
-            else:
-                python_path = os.path.join(self.venv_dir, "bin", "python3")
-                if not os.path.exists(python_path):
-                    python_path = sys.executable  # Fall back to system Python
+            # Only fallback if both venv paths are missing
+            python_path = sys.executable
         
         # Get path to main.py script
         script_path = os.path.join(self.current_dir, "main.py")
