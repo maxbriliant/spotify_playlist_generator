@@ -18,41 +18,48 @@ import webbrowser
 import re
 import traceback  # For better error reporting
 
-# --- VENV AUTO-BOOTSTRAP ---
-venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv_spotify")
-venv_python = os.path.join(venv_dir, "bin", "python")
-if sys.platform == "win32":
-    venv_python = os.path.join(venv_dir, "Scripts", "python.exe")
-
-# If not running inside the venv, auto-create and re-exec
-if not sys.prefix.startswith(venv_dir):
-    if not os.path.exists(venv_python):
-        print("Creating virtual environment...")
-        subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True)
-    print("Installing dependencies (if needed)...")
-    reqs = [
-        "spotipy",
-        "python-dotenv",
-        "pillow",
-        "screeninfo",
-        "python-xlib; platform_system != 'Windows'",
-        "requests",
-        "charset_normalizer",
-        "idna",
-        "urllib3"
-    ]
-    subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True)
-    subprocess.run([venv_python, "-m", "pip", "install"] + reqs, check=True)
-    print("Restarting inside virtual environment...")
-    os.execv(venv_python, [venv_python] + sys.argv)
+# --- VENV AUTO-BOOTSTRAP (SPLASH-FIRST, BACKGROUND) ---
+def ensure_venv_ready(callback):
+    import threading
+    import sys, os, subprocess
+    venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv_spotify")
+    venv_python = os.path.join(venv_dir, "bin", "python")
+    if sys.platform == "win32":
+        venv_python = os.path.join(venv_dir, "Scripts", "python.exe")
+    def setup():
+        if not sys.prefix.startswith(venv_dir):
+            if not os.path.exists(venv_python):
+                subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            reqs = [
+                "spotipy",
+                "python-dotenv",
+                "pillow",
+                "screeninfo",
+                "python-xlib; platform_system != 'Windows'",
+                "requests",
+                "charset_normalizer",
+                "idna",
+                "urllib3"
+            ]
+            subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([venv_python, "-m", "pip", "install"] + reqs, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            os.execv(venv_python, [venv_python] + sys.argv)
+        callback()
+    threading.Thread(target=setup, daemon=True).start()
 
 # --- Detect session type (Wayland/X11) ---
 SESSION_TYPE = os.environ.get("XDG_SESSION_TYPE", "unknown").lower()
 
 # --- Monitor detection ---
 def get_mouse_monitor_geometry(width, height):
-    if SESSION_TYPE == "wayland":
-        print("[DEBUG] Wayland detected: precise window placement is not possible.")
+    try:
+        from screeninfo import get_monitors
+        from Xlib import display as xdisplay
+    except ImportError:
+        get_monitors = None
+        xdisplay = None
+    if SESSION_TYPE == "wayland" or not get_monitors or not xdisplay:
+        print("[DEBUG] Wayland detected or required modules not available: precise window placement is not possible.")
         # Fallback: center on primary screen
         try:
             import tkinter as tk
@@ -67,8 +74,6 @@ def get_mouse_monitor_geometry(width, height):
         y = (screen_height - height) // 2
         return x, y, False
     try:
-        from screeninfo import get_monitors
-        from Xlib import display as xdisplay
         dsp = xdisplay.Display()
         root = dsp.screen().root
         pointer = root.query_pointer()
@@ -96,13 +101,6 @@ def get_mouse_monitor_geometry(width, height):
         x = (screen_width - width) // 2
         y = (screen_height - height) // 2
         return x, y, False
-
-# Enable debug logging for final testing phase
-# TODO: Set to False for production release
-DEBUG = False
-
-def debug_log(message):
-    pass
 
 # UI layout constants - carefully tuned for best user experience
 INITIAL_WINDOW_WIDTH = 600
@@ -139,7 +137,7 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         self.update_idletasks()
         width = self.winfo_width()
         height = self.winfo_height()
-        x, y = get_mouse_monitor_geometry(width, height)
+        x, y, _ = get_mouse_monitor_geometry(width, height)
         self.geometry(f"+{x}+{y}")
         
         # Create the UI
@@ -360,12 +358,10 @@ class SpotifyCredentialsDialog(tk.Toplevel):
                 
                 if current_modified_time != self.last_modified_time:
                     # File has been modified, reload credentials
-                    debug_log(f".env file changed. Last modified: {self.last_modified_time}, Current: {current_modified_time}")
                     self.last_modified_time = current_modified_time
                     self.load_existing_credentials()
-                    debug_log("Reloaded credentials from modified .env file")
         except Exception as e:
-            debug_log(f"Error checking .env file changes: {e}")
+            pass  # Ignore errors in file monitoring
             
         # Schedule the next check if dialog is still open
         if self.winfo_exists():
@@ -381,7 +377,7 @@ class SpotifyPlaylistGeneratorGUI:
         self.root.update_idletasks()
         width = self.root.winfo_width()
         height = self.root.winfo_height()
-        x, y = get_mouse_monitor_geometry(width, height)
+        x, y, _ = get_mouse_monitor_geometry(width, height)
         self.root.geometry(f"+{x}+{y}")
         
         # Use light theme colors
@@ -709,7 +705,6 @@ class SpotifyPlaylistGeneratorGUI:
                     if file_path not in self.recent_files:
                         self.recent_files.append(file_path)
         except Exception as e:
-            debug_log(f"Error loading recent files: {e}")
             pass  # Ignore errors in populating recent files
             
     def start_file_monitoring(self, file_path):
@@ -735,7 +730,6 @@ class SpotifyPlaylistGeneratorGUI:
                 if current_modified_time != self.last_modified_time:
                     # File has been modified
                     self.last_modified_time = current_modified_time
-                    debug_log(f"Detected change in file: {self.monitored_file}")
                     
                     # If this is the currently selected file, update the UI to reflect changes
                     if self.monitored_file == self.songs_file_path.get():
@@ -743,7 +737,7 @@ class SpotifyPlaylistGeneratorGUI:
                         messagebox.showinfo("File Updated", 
                                           f"The file {os.path.basename(self.monitored_file)} has been updated externally.")
         except Exception as e:
-            debug_log(f"Error checking file changes: {e}")
+            pass  # Ignore errors in file monitoring
         
         # Reschedule the check
         self.monitoring_job = self.root.after(1000, self.check_file_changes)
@@ -862,7 +856,6 @@ class SpotifyPlaylistGeneratorGUI:
             playlist_name = self.playlist_entry.get().strip()
             
             # Debug output for playlist name
-            debug_log(f"Got playlist name from entry: '{playlist_name}'")
             self.write_to_console(f"Playlist name entered: '{playlist_name}'\n")
             
             # Expand window to show more console output
@@ -922,7 +915,6 @@ class SpotifyPlaylistGeneratorGUI:
                     
                     # Create a shell command with proper quoting for the arguments
                     command_str = f"{script_path} '{playlist_name}' '{songs_file}'"
-                    debug_log(f"Shell command: {command_str}")
                     success = self._run_command_and_process_output(["/bin/bash", "-c", command_str], playlist_name, songs_file)
                 else:
                     self.write_to_console("Shell script not executable, falling back to Python method\n")
@@ -935,8 +927,6 @@ class SpotifyPlaylistGeneratorGUI:
             self.status_var.set("Ready")
             self.create_button.config(state=tk.NORMAL)
         except Exception as e:
-            debug_log(f"Exception in create_playlist: {e}")
-            debug_log(traceback.format_exc())
             self.write_to_console(f"\n❌ Error: {str(e)}\n")
             self.status_var.set("Error")
             self.create_button.config(state=tk.NORMAL)
@@ -984,9 +974,6 @@ class SpotifyPlaylistGeneratorGUI:
         
         # Run process
         try:
-            debug_log(f"Executing command: {command}")
-            
-            # Use subprocess.Popen to capture output in real time
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
@@ -1026,7 +1013,7 @@ class SpotifyPlaylistGeneratorGUI:
                         url_match = re.search(r'https://open\.spotify\.com/playlist/\w+', clean_line)
                         if url_match:
                             playlist_url = url_match.group(0)
-                            debug_log(f"Found playlist URL: {playlist_url}")
+                            print(f"Found playlist URL: {playlist_url}")
                     elif "Gefunden via" in clean_line:
                         self.write_to_console(f"✓ {clean_line}\n")
                     elif "Batch hinzugefügt:" in clean_line or "Erfolgreich" in clean_line:
@@ -1042,7 +1029,6 @@ class SpotifyPlaylistGeneratorGUI:
             # Wait for process to complete
             if process:
                 return_code = process.wait()
-                debug_log(f"Process completed with return code: {return_code}")
             else:
                 self.write_to_console("Error: Process failed to start\n")
                 return False
@@ -1062,8 +1048,6 @@ class SpotifyPlaylistGeneratorGUI:
                 return False
         
         except Exception as e:
-            debug_log(f"Exception in _run_command_and_process_output: {e}")
-            debug_log(traceback.format_exc())
             self.write_to_console(f"\n❌ Error: {str(e)}\n")
             
             # If shell script fails, try Python method directly instead of showing error
@@ -1124,8 +1108,9 @@ def create_splash_screen():
         try:
             progress_bar.coords(bar, 0, 0, progress_position[0], 8)
             # Store timer ID so it can be canceled
-            if hasattr(splash, 'timer_id'):
-                splash.timer_id = splash.after(30, animate_progress)
+            if hasattr(splash, '_timer_id'):
+                splash.after_cancel(splash._timer_id)
+            splash._timer_id = splash.after(30, animate_progress)
         except tk.TclError:
             # Canvas was already destroyed, do nothing
             pass
@@ -1134,9 +1119,9 @@ def create_splash_screen():
     def cleanup():
         """Safely cancel animation timer"""
         try:
-            if hasattr(splash, 'timer_id') and splash.timer_id:
-                splash.after_cancel(splash.timer_id)
-                splash.timer_id = None
+            if splash._timer_id:
+                splash.after_cancel(splash._timer_id)
+                splash._timer_id = None
         except Exception:
             pass
     
@@ -1144,12 +1129,12 @@ def create_splash_screen():
     splash.cleanup = cleanup
     
     # Initialize timer ID storage
-    splash.timer_id = None
+    splash._timer_id = None
     
     # Show splash and start animation
     splash.deiconify()
     splash.update()
-    splash.timer_id = splash.after(30, animate_progress)
+    splash._timer_id = splash.after(30, animate_progress)
     
     return splash
 
@@ -1157,51 +1142,18 @@ def main():
     splash = None
     root = None
     try:
-        # Splash-Screen sofort anzeigen
         splash = create_splash_screen()
         splash.update()
-        # Environment-Check im Hintergrund, Splash bleibt sichtbar
-        def do_env_check_and_start():
-            try:
-                # Prüfe und boote ggf. venv (wie bisher, aber ohne sichtbares Terminal)
-                venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv_spotify")
-                venv_python = os.path.join(venv_dir, "bin", "python")
-                if sys.platform == "win32":
-                    venv_python = os.path.join(venv_dir, "Scripts", "python.exe")
-                if not sys.prefix.startswith(venv_dir):
-                    if not os.path.exists(venv_python):
-                        subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    reqs = [
-                        "spotipy",
-                        "python-dotenv",
-                        "pillow",
-                        "screeninfo",
-                        "python-xlib; platform_system != 'Windows'",
-                        "requests",
-                        "charset_normalizer",
-                        "idna",
-                        "urllib3"
-                    ]
-                    subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    subprocess.run([venv_python, "-m", "pip", "install"] + reqs, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    os.execv(venv_python, [venv_python] + sys.argv)
-                # Splash schließen und GUI starten
-                if splash and splash.winfo_exists():
-                    if hasattr(splash, 'cleanup'):
-                        splash.cleanup()
-                    splash.destroy()
-                # Hauptfenster starten
-                root = tk.Tk()
-                app = SpotifyPlaylistGeneratorGUI(root)
-                app.load_recent_files()
-                root.mainloop()
-            except Exception as e:
-                if splash and splash.winfo_exists():
-                    splash.destroy()
-                print(f"Error during environment check: {e}")
-        # Starte den Check asynchron, damit Splash animiert bleibt
-        import threading
-        threading.Thread(target=do_env_check_and_start, daemon=True).start()
+        def start_gui():
+            if splash and splash.winfo_exists():
+                if hasattr(splash, 'cleanup'):
+                    splash.cleanup()
+                splash.destroy()
+            root = tk.Tk()
+            app = SpotifyPlaylistGeneratorGUI(root)
+            app.load_recent_files()
+            root.mainloop()
+        ensure_venv_ready(start_gui)
         splash.mainloop()
     except Exception as e:
         if root and root.winfo_exists():

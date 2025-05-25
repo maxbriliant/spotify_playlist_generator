@@ -32,6 +32,12 @@ except ImportError:
     PIL_AVAILABLE = False
     print("Note: PIL not available, using basic icons")
 
+# Fix: Only import screeninfo if available, and handle missing import gracefully
+try:
+    from screeninfo import get_monitors
+except ImportError:
+    get_monitors = None
+
 # Modern UI Configuration
 class ModernConfig:
     # Color Schemes - Material Design 3 inspired
@@ -172,7 +178,7 @@ class ModernWidget:
         button = tk.Button(
             button_frame,
             text=text,
-            command=command,
+            command=command if command is not None else (lambda: None),
             bg=bg_color,
             fg=fg_color,
             font=ModernConfig.FONTS['button'],
@@ -181,7 +187,7 @@ class ModernWidget:
             cursor='hand2',
             padx=20,
             pady=12,
-            width=width,
+            width=width if width is not None else 0,
             **kwargs
         )
         
@@ -208,7 +214,7 @@ class ModernWidget:
         
         entry = tk.Entry(
             entry_frame,
-            textvariable=textvariable,
+            textvariable=textvariable if textvariable is not None else tk.StringVar(),
             font=ModernConfig.FONTS['body_medium'],
             bg=colors['surface_variant'],
             fg=colors['on_surface'],
@@ -315,27 +321,26 @@ class ModernSpotifyGUI:
                 pass
     
     def center_window(self):
-        """Platziere das Fenster mittig auf DEM Monitor, auf dem sich der Mauszeiger befindet (Multi-Monitor/Linux)."""
         try:
             # Versuche mit screeninfo und Xlib
             try:
-                from screeninfo import get_monitors
                 import Xlib.display
                 dsp = Xlib.display.Display()
                 root = dsp.screen().root
                 pointer = root.query_pointer()
                 mouse_x, mouse_y = pointer.root_x, pointer.root_y
-                monitors = get_monitors()
-                for m in monitors:
-                    if m.x <= mouse_x < m.x + m.width and m.y <= mouse_y < m.y + m.height:
+                if get_monitors:
+                    monitors = get_monitors()
+                    for m in monitors:
+                        if m.x <= mouse_x < m.x + m.width and m.y <= mouse_y < m.y + m.height:
+                            screen_x, screen_y, screen_w, screen_h = m.x, m.y, m.width, m.height
+                            break
+                    else:
+                        m = monitors[0]
                         screen_x, screen_y, screen_w, screen_h = m.x, m.y, m.width, m.height
-                        break
                 else:
-                    # Fallback: erster Monitor
-                    m = monitors[0]
-                    screen_x, screen_y, screen_w, screen_h = m.x, m.y, m.width, m.height
+                    raise Exception('screeninfo not available')
             except Exception:
-                # Fallback: Tkinter-Standard
                 screen_x, screen_y = 0, 0
                 screen_w = self.root.winfo_screenwidth()
                 screen_h = self.root.winfo_screenheight()
@@ -346,7 +351,6 @@ class ModernSpotifyGUI:
             y = screen_y + (screen_h - height) // 2
             self.root.geometry(f'+{x}+{y}')
         except Exception:
-            # Fallback: Center auf Hauptscreen
             self.root.update_idletasks()
             width = self.root.winfo_width()
             height = self.root.winfo_height()
@@ -355,19 +359,13 @@ class ModernSpotifyGUI:
             self.root.geometry(f'+{x}+{y}')
     
     def create_window_icon(self):
-        """Create a simple window icon"""
         if not PIL_AVAILABLE:
             return
-            
-        # Create a small icon image
+        from PIL import Image, ImageTk, ImageDraw
         icon_size = 32
         icon = Image.new('RGBA', (icon_size, icon_size), (0, 0, 0, 0))
         draw = ImageDraw.Draw(icon)
-        
-        # Draw Spotify-like circle
         draw.ellipse([4, 4, 28, 28], fill='#1DB954')
-        
-        # Convert to PhotoImage and set as icon
         icon_tk = ImageTk.PhotoImage(icon)
         self.root.iconphoto(False, icon_tk)
     
@@ -658,12 +656,10 @@ class ModernSpotifyGUI:
     def toggle_theme(self):
         """Toggle between dark and light themes with smooth transition"""
         self.style_manager.toggle_theme()
-        
-        # Update theme button text
         try:
-            theme_button = self.theme_btn.winfo_children()[0]  # Get the actual button
+            theme_button = self.theme_btn.winfo_children()[0]
             new_text = '☀️' if self.style_manager.current_theme == 'dark' else '🌙'
-            theme_button.configure(text=new_text)
+            theme_button.config(text=new_text)
         except:
             pass
     
@@ -798,8 +794,7 @@ class ModernSpotifyGUI:
             pass
         try:
             create_button = self.create_button.winfo_children()[0]
-            create_button.configure(state='normal', disabledforeground='#ffffff')  # Setzt disabled text auf weiß
-            create_button.configure(state='disabled', text='⏳ Generating...', disabledforeground='#ffffff')
+            create_button.config(state=tk.DISABLED)
         except:
             pass
         self.clear_console()
@@ -818,7 +813,7 @@ class ModernSpotifyGUI:
         # Re-enable create button und Text zurücksetzen
         try:
             create_button = self.create_button.winfo_children()[0]
-            create_button.configure(state='normal', text='🚀 Generate Playlist')
+            create_button.config(state=tk.NORMAL)
         except:
             pass
         if success:
@@ -842,11 +837,9 @@ class ModernSpotifyGUI:
     def _handle_playlist_error(self, error_msg):
         """Handle playlist creation error (called in main thread)"""
         self.animation_running = False
-        
-        # Re-enable create button
         try:
             create_button = self.create_button.winfo_children()[0]
-            create_button.configure(state='normal')
+            create_button.config(state=tk.NORMAL)
         except:
             pass
             
@@ -908,7 +901,8 @@ class ModernSpotifyGUI:
             if sys.platform == 'linux' or sys.platform.startswith('darwin'):
                 if isinstance(command, list) and len(command) > 0 and command[0] == "/bin/bash":
                     self.write_to_console("\nTrying alternative method with Python...\n")
-                    return self._create_playlist_using_python(playlist_name, songs_file)
+                    if hasattr(self, '_create_playlist_using_python'):
+                        return self._create_playlist_using_python(playlist_name, songs_file)
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
             return False
 
@@ -1004,20 +998,16 @@ def create_modern_splash():
     )
     dots_label.pack()
     
-    # Safe animation function
+    # Use a mutable list for animation state
+    animate_state = [0]
     def animate_loading():
         dots = ['', '.', '..', '...', '....', '.....']
-        if hasattr(animate_loading, 'current'):
-            animate_loading.current = (animate_loading.current + 1) % len(dots)
-        else:
-            animate_loading.current = 0
-        
+        animate_state[0] = (animate_state[0] + 1) % len(dots)
         try:
-            dots_label.configure(text=dots[animate_loading.current])
+            dots_label.configure(text=dots[animate_state[0]])
             splash.after(200, animate_loading)
         except:
             pass
-    
     animate_loading()
     splash.update()
     
@@ -1054,3 +1044,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Provide a stub for _create_playlist_using_python if not defined
+if not hasattr(ModernSpotifyGUI, '_create_playlist_using_python'):
+    def _create_playlist_using_python(self, playlist_name, songs_file):
+        self.write_to_console("Python playlist creation not implemented in Modern UI.\n", 'error')
+        return False
+    ModernSpotifyGUI._create_playlist_using_python = _create_playlist_using_python
