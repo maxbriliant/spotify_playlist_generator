@@ -2,7 +2,7 @@
 
 ---
 
-**Windows users:**
+**Windows users** download Python and ZIP:
 
 1. Download and install the latest Python from [python.org/windows](https://www.python.org/downloads/windows/)
 2. Download this project as a ZIP (Code → Download ZIP) or on
