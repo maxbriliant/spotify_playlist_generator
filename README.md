@@ -2,7 +2,6 @@
 ![Spotify Playlist Generator](https://img.shields.io/badge/Spotify-Playlist%20Generator-1DB954?style=for-the-badge&logo=spotify&logoColor=white)
 
 > A simple tool to create Spotify playlists from a text file of song names.
-
 ---
 
 **Windows users** 
