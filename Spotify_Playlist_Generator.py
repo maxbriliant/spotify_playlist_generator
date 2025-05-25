@@ -1171,6 +1171,14 @@ def main():
                     pass
 
 if __name__ == "__main__":
+    # Windows: Verhindere störendes Terminalfenster, wenn mit python.exe gestartet
+    if sys.platform == "win32":
+        import subprocess
+        if os.path.basename(sys.executable).lower() == "python.exe":
+            pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+            if os.path.exists(pythonw):
+                subprocess.Popen([pythonw, __file__])
+                sys.exit(0)
     # Starte die moderne GUI
     import modern_spotify_gui
     modern_spotify_gui.main()

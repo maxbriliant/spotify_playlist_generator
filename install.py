@@ -20,7 +20,7 @@ is_windows = platform.system().lower() == 'windows'
 current_dir = os.path.abspath(os.path.dirname(__file__))
 venv_dir = os.path.join(current_dir, "venv_spotify")
 
-print("Setting up aiPlaylistGenerator Modern Edition...")
+print("Setting up Spotify Playlist Generator...")
 
 # Set up Python virtual environment
 print("Creating Python virtual environment...")
@@ -35,7 +35,7 @@ else:
     print("Virtual environment already exists.")
 
 # Activate and install dependencies
-print("Installing dependencies for Modern GUI...")
+print("Installing dependencies for Python...")
 if is_windows:
     pip_path = os.path.join(venv_dir, "Scripts", "pip.exe")
     python_path = os.path.join(venv_dir, "Scripts", "python.exe")
@@ -98,13 +98,18 @@ if not is_windows:
             print(f"Warning: File not found: {os.path.basename(file_path)}")
 
 print("\n=== Installation Complete ===")
-print("To use the Modern Spotify Playlist Generator GUI:")
+print("To use the Spotify Playlist Generator GUI:")
 if is_windows:
     print("1. Edit the .env file with your Spotify API credentials")
     print("2. Create a playlist.txt file with songs in format 'Artist - Song Title'")
-    print(r"3. Run: venv_spotify\Scripts\python.exe modern_spotify_gui.py")
+    print(r"3. Run: venv_spotify\Scripts\python.exe Spotify_Playlist_Generator.py")
+    print("\n" + "="*60)
+    print("🎉🎉🎉   INSTALLATION SUCCESSFUL!   🎉🎉🎉".center(60))
+    print("="*60)
+    print("You may now close this window or press Enter to exit.")
+    input()
 else:
     print("1. Edit the .env file with your Spotify API credentials")
     print("2. Create a playlist.txt file with songs in format 'Artist - Song Title'")
-    print("3. Run: ./venv_spotify/bin/python modern_spotify_gui.py")
-print("\nEnjoy your music!")
+    print("3. Run: ./venv_spotify/bin/python Spotify_Playlist_Generator.py")
+    print("\nEnjoy your music!")

@@ -646,7 +646,7 @@ class ModernSpotifyGUI:
         # Version info
         version_label = tk.Label(
             status_frame,
-            text="v2.0.0 Modern Edition",
+            text="v1.2 Modern Edition",
             font=ModernConfig.FONTS['caption'],
             fg=self.style_manager.colors['on_surface_variant'],
             bg=self.style_manager.colors['background']
@@ -968,7 +968,7 @@ def create_modern_splash():
     # Subtitle
     subtitle_label = tk.Label(
         container,
-        text="Modern Edition v2.0.0",
+        text="Spotify Playlist Gen. v1.2",
         font=('Helvetica', 12),
         fg='#1DB954',
         bg='#0d1117'
