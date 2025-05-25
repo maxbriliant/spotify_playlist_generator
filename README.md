@@ -111,7 +111,7 @@ The GUI includes several helpful features:
 - **Credentials Management**: Easy setup of your Spotify API keys
 - **Console Output**: Formatted, color-coded output makes it easy to follow the process
 
-![Credentials Setup](demo2.png)
+![Credentials Setup](dem.png)
 
 ## ❓ Troubleshooting
 
