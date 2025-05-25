@@ -12,6 +12,31 @@ import shutil
 import sys
 import subprocess
 from pathlib import Path
+import platform
+
+def is_wine_or_windows_path(path):
+    # Prüfe auf typische Windows/Wine-Pfade
+    return (
+        '\\' in path or
+        (':' in path and (path[1:3] == ':/' or path[1:3] == ':\\')) or
+        '/.wine/' in path or
+        path.lower().startswith('c:/') or
+        path.lower().startswith('c:\\')
+    )
+
+# Prüfe Python-Interpreter und Arbeitsverzeichnis
+if (
+    'wine' in sys.executable.lower() or
+    is_wine_or_windows_path(sys.executable) or
+    is_wine_or_windows_path(os.getcwd()) or
+    platform.system().lower() == 'windows'
+):
+    print("\nERROR: Dieses Installationsskript darf NICHT unter Wine oder mit einem Windows-Python ausgeführt werden!\nBitte verwende einen nativen Linux-Python (z.B. /usr/bin/python3).\n")
+    sys.exit(1)
+
+# Normalisiere alle Pfade auf das aktuelle OS-Format
+current_dir = os.path.normpath(os.path.dirname(os.path.abspath(__file__)))
+venv_dir = os.path.normpath(os.path.join(current_dir, "venv_spotify"))
 
 print("Setting up aiPlaylistGenerator Modern Edition...")
 
