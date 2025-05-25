@@ -43,22 +43,15 @@ else:
     pip_path = os.path.join(venv_dir, "bin", "pip")
     python_path = os.path.join(venv_dir, "bin", "python")
 
-required_packages = [
-    "spotipy",
-    "python-dotenv",
-    "pillow",
-    "screeninfo",
-    "python-xlib; platform_system != 'Windows'",
-    "requests",
-    "charset_normalizer",
-    "idna",
-    "urllib3"
-]
+requirements_path = os.path.join(current_dir, "requirements.txt")
+if not os.path.exists(requirements_path):
+    print("ERROR: requirements.txt not found! Please make sure it exists in the project directory.")
+    sys.exit(1)
 
 try:
     subprocess.run([python_path, "-m", "pip", "install", "--upgrade", "pip"], check=True)
-    subprocess.run([python_path, "-m", "pip", "install"] + required_packages, check=True)
-    print("All dependencies installed successfully.")
+    subprocess.run([python_path, "-m", "pip", "install", "-r", requirements_path], check=True)
+    print("All dependencies installed successfully from requirements.txt.")
 except Exception as e:
     print(f"Error installing dependencies: {e}")
     sys.exit(1)
