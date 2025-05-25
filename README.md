@@ -1,5 +1,17 @@
 # Spotify Playlist Generator
 
+---
+
+**Windows users:**
+
+1. Download and install the latest Python from [python.org/windows](https://www.python.org/downloads/windows/)
+2. Download this project as a ZIP (Code → Download ZIP) or clone it with Git:
+   ```
+   git clone https://github.com/maxbriliant/spotify_playlist_generator.git
+   ```
+
+---
+
 ![Spotify Playlist Generator](https://img.shields.io/badge/Spotify-Playlist%20Generator-1DB954?style=for-the-badge&logo=spotify&logoColor=white)
 
 > A simple tool to create Spotify playlists from a text file of song names.
