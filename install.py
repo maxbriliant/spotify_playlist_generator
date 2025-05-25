@@ -90,6 +90,36 @@ if not is_windows:
         else:
             print(f"Warning: File not found: {os.path.basename(file_path)}")
 
+# Create a desktop shortcut on Windows to launch the app with pythonw.exe (no terminal window)
+if is_windows:
+    try:
+        import sys
+        import os
+        venv_dir = os.path.join(current_dir, "venv_spotify")
+        pythonw_path = os.path.join(venv_dir, "Scripts", "pythonw.exe")
+        script_path = os.path.join(current_dir, "Spotify_Playlist_Generator.py")
+        desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+        shortcut_path = os.path.join(desktop, "Spotify Playlist Generator.lnk")
+
+        # Ensure pywin32 is installed in the venv
+        try:
+            import win32com.client
+        except ImportError:
+            pip_path = os.path.join(venv_dir, "Scripts", "pip.exe")
+            subprocess.run([pip_path, "install", "pywin32"], check=True)
+            import win32com.client
+
+        shell = win32com.client.Dispatch('WScript.Shell')
+        shortcut = shell.CreateShortCut(shortcut_path)
+        shortcut.Targetpath = pythonw_path
+        shortcut.Arguments = f'"{script_path}"'
+        shortcut.WorkingDirectory = current_dir
+        shortcut.IconLocation = pythonw_path
+        shortcut.save()
+        print(f"Desktop shortcut created: {shortcut_path}")
+    except Exception as e:
+        print(f"Warning: Could not create desktop shortcut automatically. Error: {e}\nYou can manually create a shortcut to run venv_spotify\\Scripts\\pythonw.exe Spotify_Playlist_Generator.py")
+
 print("\n=== Installation Complete ===")
 print("To use the Spotify Playlist Generator GUI:")
 if is_windows:

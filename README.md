@@ -58,11 +58,13 @@ Before using Spotify Playlist Generator, you need to set up your Spotify Develop
 
 ### GUI Interface (Recommended)
 
-The easiest way to use Spotify Playlist Generator with the graphical interface - double click it, or run via bash:
+The easiest way to use Spotify Playlist Generator with the graphical interface is to use the shortcut (on Windows) or run via bash:
 
 ```bash
 python3 Spotify_Playlist_Generator.py
 ```
+
+On Windows, you can also use the 'Spotify Playlist Generator' shortcut on your Desktop (recommended).
 
 The GUI provides:
 - Easy playlist creation without command line knowledge

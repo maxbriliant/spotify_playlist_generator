@@ -914,9 +914,18 @@ class ModernSpotifyGUI:
             venv_python = os.path.join(self.current_dir, "venv_spotify", "bin", "python")
             if sys.platform == "win32":
                 venv_python = os.path.join(self.current_dir, "venv_spotify", "Scripts", "python.exe")
+                # Use pythonw.exe to suppress command window
+                pythonw = os.path.join(self.current_dir, "venv_spotify", "Scripts", "pythonw.exe")
+                if os.path.exists(pythonw):
+                    venv_python = pythonw
             if not os.path.exists(venv_python):
                 # Only fallback if both venv paths are missing
                 venv_python = sys.executable
+                # Use pythonw.exe if available and on Windows
+                if sys.platform == "win32":
+                    pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+                    if os.path.exists(pythonw):
+                        venv_python = pythonw
             script_path = os.path.join(self.current_dir, "main.py")
             command = [venv_python, script_path, playlist_name, songs_file]
             success = self._run_command_and_process_output(command, playlist_name, songs_file)

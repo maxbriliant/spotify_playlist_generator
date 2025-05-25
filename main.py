@@ -17,7 +17,8 @@ What it does:
 - Tries really hard to find the right songs with multiple search strategies
 - Processes songs in batches so large playlists don't crash
 
-For the easy way, just use the GUI: ./Spotify_Playlist_Generator.py
+For the easy way, just use the GUI: use the shortcut 'Spotify Playlist Generator' (Windows) or run:
+./Spotify_Playlist_Generator.py
 """
 
 from spotipy.oauth2 import SpotifyOAuth
