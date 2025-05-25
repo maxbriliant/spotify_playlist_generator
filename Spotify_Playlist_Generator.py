@@ -18,6 +18,34 @@ import webbrowser
 import re
 import traceback  # For better error reporting
 
+# --- VENV AUTO-BOOTSTRAP ---
+venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv_spotify")
+venv_python = os.path.join(venv_dir, "bin", "python")
+if sys.platform == "win32":
+    venv_python = os.path.join(venv_dir, "Scripts", "python.exe")
+
+# If not running inside the venv, auto-create and re-exec
+if not sys.prefix.startswith(venv_dir):
+    if not os.path.exists(venv_python):
+        print("Creating virtual environment...")
+        subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True)
+    print("Installing dependencies (if needed)...")
+    reqs = [
+        "spotipy",
+        "python-dotenv",
+        "pillow",
+        "screeninfo",
+        "python-xlib; platform_system != 'Windows'",
+        "requests",
+        "charset_normalizer",
+        "idna",
+        "urllib3"
+    ]
+    subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True)
+    subprocess.run([venv_python, "-m", "pip", "install"] + reqs, check=True)
+    print("Restarting inside virtual environment...")
+    os.execv(venv_python, [venv_python] + sys.argv)
+
 # --- Detect session type (Wayland/X11) ---
 SESSION_TYPE = os.environ.get("XDG_SESSION_TYPE", "unknown").lower()
 

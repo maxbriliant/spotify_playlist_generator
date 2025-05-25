@@ -28,6 +28,14 @@ import os
 import time
 import re
 
+# --- VENV CHECK ---
+venv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv_spotify")
+if not sys.prefix.startswith(venv_path):
+    print("\nERROR: Please run this script using the virtual environment Python!\n" \
+          "On Linux:   ./venv_spotify/bin/python main.py\n" \
+          "On Windows: venv_spotify\\Scripts\\python.exe main.py\n")
+    sys.exit(1)
+
 # Logging stuff - because I like to know what's happening
 def log(message: str) -> None:
     """
