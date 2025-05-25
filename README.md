@@ -57,7 +57,7 @@ The GUI provides:
 - Automatic environment checking
 - One-click opening of created playlists
 
-![GUI Screenshot](demo1.png)
+![GUI Screenshot](demo.png)
 
 ### Command Line Usage
 
