@@ -18,6 +18,57 @@ import webbrowser
 import re
 import traceback  # For better error reporting
 
+# --- Detect session type (Wayland/X11) ---
+SESSION_TYPE = os.environ.get("XDG_SESSION_TYPE", "unknown").lower()
+
+# --- Monitor detection ---
+def get_mouse_monitor_geometry(width, height):
+    if SESSION_TYPE == "wayland":
+        print("[DEBUG] Wayland detected: precise window placement is not possible.")
+        # Fallback: center on primary screen
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+            root.destroy()
+        except Exception:
+            screen_width = 1920
+            screen_height = 1080
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        return x, y, False
+    try:
+        from screeninfo import get_monitors
+        from Xlib import display as xdisplay
+        dsp = xdisplay.Display()
+        root = dsp.screen().root
+        pointer = root.query_pointer()
+        mouse_x, mouse_y = pointer.root_x, pointer.root_y
+        for m in get_monitors():
+            if m.x <= mouse_x < m.x + m.width and m.y <= mouse_y < m.y + m.height:
+                x = m.x + (m.width - width) // 2
+                y = m.y + (m.height - height) // 2
+                return x, y, True
+        m = get_monitors()[0]
+        x = m.x + (m.width - width) // 2
+        y = m.y + (m.height - height) // 2
+        return x, y, True
+    except Exception as e:
+        print(f"[DEBUG] get_mouse_monitor_geometry fallback: {e}")
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+            root.destroy()
+        except Exception:
+            screen_width = 1920
+            screen_height = 1080
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        return x, y, False
+
 # Enable debug logging for final testing phase
 # TODO: Set to False for production release
 DEBUG = True
@@ -49,7 +100,7 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         
         # Configure window
         self.title("Spotify Credentials Setup")
-        self.geometry("650x450")  # Reduced height since we're removing the preview section
+        self.geometry("650x450")
         self.resizable(True, True)
         self.minsize(650, 450)
         
@@ -58,17 +109,11 @@ class SpotifyCredentialsDialog(tk.Toplevel):
         
         self.grab_set()  # Modal dialog
         self.transient(parent)  # Associate with parent window
-        
-        # Center on parent
+        # Center on monitor under mouse
         self.update_idletasks()
-        parent_x = parent.winfo_x()
-        parent_y = parent.winfo_y()
-        parent_width = parent.winfo_width()
-        parent_height = parent.winfo_height()
         width = self.winfo_width()
         height = self.winfo_height()
-        x = parent_x + (parent_width // 2) - (width // 2)
-        y = parent_y + (parent_height // 2) - (height // 2)
+        x, y = get_mouse_monitor_geometry(width, height)
         self.geometry(f"+{x}+{y}")
         
         # Create the UI
@@ -306,6 +351,12 @@ class SpotifyPlaylistGeneratorGUI:
         self.root.title("Spotify Playlist Generator")
         self.root.geometry(f"{INITIAL_WINDOW_WIDTH}x{INITIAL_WINDOW_HEIGHT}")
         self.root.minsize(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
+        # Center on monitor under mouse
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x, y = get_mouse_monitor_geometry(width, height)
+        self.root.geometry(f"+{x}+{y}")
         
         # Use light theme colors
         self.accent_color = "#1DB954"  # Spotify green
@@ -356,6 +407,24 @@ class SpotifyPlaylistGeneratorGUI:
         # Bind right-click to console
         self.console.bind("<Button-3>", self.show_context_menu)
     
+        self.root.after(100, self.center_on_monitor)
+        self.root.after(400, self.center_on_monitor)  # Nochmals nach kurzem Delay
+        self.placement_warning = None
+
+    def center_on_monitor(self):
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x, y, precise = get_mouse_monitor_geometry(width, height)
+        self.root.geometry(f"+{x}+{y}")
+        if not precise:
+            if not self.placement_warning:
+                self.placement_warning = tk.Label(self.root, text="Hinweis: Exakte Fensterplatzierung ist auf diesem System nicht möglich (z.B. Wayland oder restriktiver Window-Manager)", fg="red")
+                self.placement_warning.pack(side=tk.BOTTOM, pady=2)
+        else:
+            if self.placement_warning:
+                self.placement_warning.destroy()
+                self.placement_warning = None
+    
     def run_installation(self):
         """Run the installation script to set up the environment"""
         install_script = os.path.join(self.current_dir, "install.py")
@@ -370,15 +439,11 @@ class SpotifyPlaylistGeneratorGUI:
         progress_win.resizable(False, False)
         progress_win.configure(bg=self.bg_color)
         progress_win.grab_set()  # Modal dialog
-        
-        # Center the progress window
+        # Center on monitor under mouse
         progress_win.update_idletasks()
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
         width = progress_win.winfo_width()
         height = progress_win.winfo_height()
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
+        x, y = get_mouse_monitor_geometry(width, height)
         progress_win.geometry(f"+{x}+{y}")
         
         # Progress info
@@ -987,21 +1052,13 @@ class SpotifyPlaylistGeneratorGUI:
 def create_splash_screen():
     """Create a splash screen while the app loads"""
     splash = tk.Tk()
-    
-    # Configure the splash window
     splash.withdraw()  # Hide initially to prevent flicker
     splash.title("")
     splash.overrideredirect(True)  # No window decorations
-    
     # Calculate position
-    screen_width = splash.winfo_screenwidth()
-    screen_height = splash.winfo_screenheight()
-    width = 350  # Splash screen dimensions
+    width = 350
     height = 180
-    x = (screen_width - width) // 2
-    y = (screen_height - height) // 2
-    
-    # Set geometry and styling
+    x, y = get_mouse_monitor_geometry(width, height)
     splash.geometry(f'{width}x{height}+{x}+{y}')
     splash.configure(bg="#121212")  # Spotify dark background
     
@@ -1099,13 +1156,6 @@ def main():
         # Make sure to load any recent files for the UI
         app.load_recent_files()
         
-        # Center the main window
-        screen_width = root.winfo_screenwidth()
-        screen_height = root.winfo_screenheight()
-        x = (screen_width - INITIAL_WINDOW_WIDTH) // 2
-        y = (screen_height - INITIAL_WINDOW_HEIGHT) // 2
-        root.geometry(f"+{x}+{y}")
-        
         # Start the application main loop
         debug_log("Starting main application loop")
         root.mainloop()
@@ -1132,4 +1182,6 @@ def main():
                     pass
 
 if __name__ == "__main__":
-    main()
+    # Starte die moderne GUI
+    import modern_spotify_gui
+    modern_spotify_gui.main()

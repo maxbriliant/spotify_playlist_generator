@@ -13,7 +13,7 @@ import sys
 import subprocess
 from pathlib import Path
 
-print("Setting up aiPlaylistGenerator...")
+print("Setting up aiPlaylistGenerator Modern Edition...")
 
 # Current directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,41 +28,47 @@ if not os.path.exists(venv_dir):
     except Exception as e:
         print(f"Error creating virtual environment: {e}")
         sys.exit(1)
+else:
+    print("Virtual environment already exists.")
 
 # Activate and install dependencies
-print("Installing dependencies...")
-pip_path = os.path.join(venv_dir, "bin", "pip")
+print("Installing dependencies for Modern GUI...")
+if sys.platform == "win32":
+    pip_path = os.path.join(venv_dir, "Scripts", "pip")
+    python_path = os.path.join(venv_dir, "Scripts", "python")
+else:
+    pip_path = os.path.join(venv_dir, "bin", "pip")
+    python_path = os.path.join(venv_dir, "bin", "python")
+
+# List all required packages
+required_packages = [
+    "spotipy",
+    "python-dotenv",
+    "pillow",
+    "screeninfo",
+    "python-xlib",
+    "requests",
+    "charset_normalizer",
+    "idna",
+    "urllib3"
+]
+
 try:
-    subprocess.run([pip_path, "install", "--upgrade", "pip"], check=True, capture_output=True)
-    subprocess.run([pip_path, "install", "python-dotenv", "spotipy", "shutils"], check=True)
-    print("Dependencies installed successfully.")
-    
-    # Install tkinter if not available in standard library (for the GUI)
-    print("Checking for GUI dependencies...")
-    try:
-        import tkinter
-        print("Tkinter is already available.")
-    except ImportError:
-        print("Tkinter not found in standard library. Please install it using your package manager.")
-        print("For Ubuntu/Debian: sudo apt-get install python3-tk")
-        print("For Fedora: sudo dnf install python3-tkinter")
-        print("For Arch Linux: sudo pacman -S tk")
-        
+    subprocess.run([pip_path, "install", "--upgrade", "pip"], check=True)
+    subprocess.run([pip_path, "install"] + required_packages, check=True)
+    print("All dependencies installed successfully.")
 except Exception as e:
     print(f"Error installing dependencies: {e}")
     sys.exit(1)
 
-# Create a sample .env file
+# Create a sample .env file if not present
 env_path = os.path.join(current_dir, ".env")
-env_example_path = os.path.join(current_dir, ".env.example")
-print("Creating environment file template...")
 if not os.path.exists(env_path):
     with open(env_path, "w") as f:
         f.write("# Spotify API Credentials - Fill these values!\n")
         f.write("SPOTIPY_CLIENT_ID=your_client_id_here\n")
         f.write("SPOTIPY_CLIENT_SECRET=your_client_secret_here\n")
         f.write("SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback\n")
-
     print(".env template created. You must edit this file with your Spotify credentials!")
 else:
     print(".env file already exists.")
@@ -76,12 +82,10 @@ executable_files = [
     os.path.join(current_dir, "install.py"),
     os.path.join(current_dir, "debug_test.py")
 ]
-
 for file_path in executable_files:
     if os.path.exists(file_path):
         try:
             current_mode = os.stat(file_path).st_mode
-            # Add executable bit for user, group and others (if readable)
             new_mode = current_mode | ((current_mode & 0o444) >> 2)
             os.chmod(file_path, new_mode)
             print(f"Made {os.path.basename(file_path)} executable.")
@@ -91,10 +95,8 @@ for file_path in executable_files:
         print(f"Warning: File not found: {os.path.basename(file_path)}")
 
 print("\n=== Installation Complete ===")
-print("To use the Spotify Playlist Generator:")
+print("To use the Modern Spotify Playlist Generator GUI:")
 print("1. Edit the .env file with your Spotify API credentials")
 print("2. Create a playlist.txt file with songs in format 'Artist - Song Title'")
-print("3. Run: ./generate.sh 'My Playlist Name' playlist.txt")
-print("   OR")
-print("4. Use the GUI version: ./Spotify_Playlist_Generator.py")
+print("3. Run: ./venv_spotify/bin/python modern_spotify_gui.py")
 print("\nEnjoy your music!")

@@ -36,7 +36,7 @@ def log(message: str) -> None:
     """
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     entry = f"{timestamp} - {message}"
-    print(entry)
+    print(entry, flush=True)
     with open("spotify_playlist.log", "a", encoding="utf-8") as f:
         f.write(entry + "\n")
 
@@ -105,7 +105,7 @@ def main():
     5. Add everything to the playlist in batches
     """
     if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <Playlist-Name> <Input-File>")
+        print(f"Usage: {sys.argv[0]} <Playlist-Name> <Input-File>", flush=True)
         sys.exit(1)
 
     playlist_name = sys.argv[1]
@@ -237,7 +237,7 @@ def main():
     log(f"Success! Added {len(unique_ids)} tracks to your playlist.")
     
     # Print the playlist link so the GUI can grab it
-    print(f"Playlist-Link: {playlist_url}")
+    print(f"Playlist-Link: {playlist_url}", flush=True)
 
 if __name__ == "__main__":
     main()
