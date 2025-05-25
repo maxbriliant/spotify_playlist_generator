@@ -20,13 +20,20 @@ What it does:
 For the easy way, just use the GUI: ./Spotify_Playlist_Generator.py
 """
 
-from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyOAuth
 import spotipy
 import sys
 import os
 import time
 import re
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("\nERROR: The required package 'python-dotenv' is not installed in your Python environment.")
+    print("Please run 'install.py' or install dependencies in your venv:")
+    print("  pip install python-dotenv\n")
+    sys.exit(1)
 
 # --- VENV CHECK ---
 venv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv_spotify")

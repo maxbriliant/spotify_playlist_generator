@@ -935,19 +935,13 @@ class SpotifyPlaylistGeneratorGUI:
         """Execute the Python script directly"""
         self.write_to_console("Using Python method\n")
         
-        # Get Python path from virtual environment
+        # Robust venv Python selection for all platforms
         python_path = os.path.join(self.venv_dir, "bin", "python")
         if sys.platform == "win32":
             python_path = os.path.join(self.venv_dir, "Scripts", "python.exe")
-        
         if not os.path.exists(python_path):
-            # Try alternate locations
-            if sys.platform == "win32":
-                python_path = os.path.join(self.venv_dir, "Scripts", "python")
-            else:
-                python_path = os.path.join(self.venv_dir, "bin", "python3")
-                if not os.path.exists(python_path):
-                    python_path = sys.executable  # Fall back to system Python
+            # Only fallback if both venv paths are missing
+            python_path = sys.executable
         
         # Get path to main.py script
         script_path = os.path.join(self.current_dir, "main.py")
@@ -1098,56 +1092,48 @@ def create_splash_screen():
     bar = progress_bar.create_rectangle(0, 0, 0, 8, fill="#1DB954", width=0)
     
     # Safe animation function
+    splash_state = {"timer_id": None}
     def animate_progress():
-        # Only proceed if splash still exists and hasn't been destroyed
         if not splash.winfo_exists():
             return
-            
-        # Update progress position
         progress_position[0] = (progress_position[0] + 5) % 250
         try:
             progress_bar.coords(bar, 0, 0, progress_position[0], 8)
-            # Store timer ID so it can be canceled
-            if hasattr(splash, '_timer_id'):
-                splash.after_cancel(splash._timer_id)
-            splash._timer_id = splash.after(30, animate_progress)
+            if splash_state["timer_id"]:
+                splash.after_cancel(splash_state["timer_id"])
+            splash_state["timer_id"] = splash.after(30, animate_progress)
         except tk.TclError:
-            # Canvas was already destroyed, do nothing
             pass
     
     # Create cleanup function
     def cleanup():
-        """Safely cancel animation timer"""
         try:
-            if splash._timer_id:
-                splash.after_cancel(splash._timer_id)
-                splash._timer_id = None
+            if splash_state["timer_id"]:
+                splash.after_cancel(splash_state["timer_id"])
+                splash_state["timer_id"] = None
         except Exception:
             pass
     
-    # Attach cleanup method to splash window
-    splash.cleanup = cleanup
-    
-    # Initialize timer ID storage
-    splash._timer_id = None
+    splash_state["cleanup"] = cleanup
     
     # Show splash and start animation
     splash.deiconify()
     splash.update()
-    splash._timer_id = splash.after(30, animate_progress)
+    splash_state["timer_id"] = splash.after(30, animate_progress)
     
-    return splash
+    return splash, splash_state
 
 def main():
     splash = None
+    splash_state = None
     root = None
     try:
-        splash = create_splash_screen()
+        splash, splash_state = create_splash_screen()
         splash.update()
         def start_gui():
             if splash and splash.winfo_exists():
-                if hasattr(splash, 'cleanup'):
-                    splash.cleanup()
+                if splash_state and "cleanup" in splash_state:
+                    splash_state["cleanup"]()
                 splash.destroy()
             root = tk.Tk()
             app = SpotifyPlaylistGeneratorGUI(root)
@@ -1164,8 +1150,8 @@ def main():
         for window in [splash, root]:
             if window and hasattr(window, 'winfo_exists') and window.winfo_exists():
                 try:
-                    if hasattr(window, 'cleanup'):
-                        window.cleanup()
+                    if splash_state and "cleanup" in splash_state:
+                        splash_state["cleanup"]()
                     window.destroy()
                 except Exception:
                     pass

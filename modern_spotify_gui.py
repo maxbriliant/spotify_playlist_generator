@@ -24,13 +24,15 @@ import traceback
 import threading
 from datetime import datetime
 
-# Check for PIL availability
+# Remove all [DEBUG] output and suppress PIL warning for end users
+# Only print PIL warning if running in a dev/debug mode
+PIL_AVAILABLE = False
 try:
     from PIL import Image, ImageTk, ImageDraw, ImageFilter
     PIL_AVAILABLE = True
 except ImportError:
-    PIL_AVAILABLE = False
-    print("Note: PIL not available, using basic icons")
+    if os.environ.get('SPOTIFY_DEV_MODE') == '1':
+        print("Note: PIL not available, using basic icons")
 
 # Fix: Only import screeninfo if available, and handle missing import gracefully
 try:
@@ -908,13 +910,15 @@ class ModernSpotifyGUI:
 
     def _create_playlist_thread(self, playlist_name, songs_file):
         try:
-            # Nutze explizit den venv-Python
-            venv_python = os.path.join(self.venv_dir, "bin", "python")
+            # Robust venv Python selection for all platforms
+            venv_python = os.path.join(self.current_dir, "venv_spotify", "bin", "python")
+            if sys.platform == "win32":
+                venv_python = os.path.join(self.current_dir, "venv_spotify", "Scripts", "python.exe")
             if not os.path.exists(venv_python):
-                venv_python = sys.executable  # Fallback
+                # Only fallback if both venv paths are missing
+                venv_python = sys.executable
             script_path = os.path.join(self.current_dir, "main.py")
             command = [venv_python, script_path, playlist_name, songs_file]
-            self.write_to_console(f"[DEBUG] Running: {' '.join(command)}\n", 'warning')
             success = self._run_command_and_process_output(command, playlist_name, songs_file)
             if not success:
                 self.write_to_console("\n❌ Playlist generation failed. See above for details.\n", 'error')
@@ -998,30 +1002,39 @@ def create_modern_splash():
     )
     dots_label.pack()
     
-    # Use a mutable list for animation state
+    splash_state = {"animation_id": None}
     animate_state = [0]
     def animate_loading():
         dots = ['', '.', '..', '...', '....', '.....']
         animate_state[0] = (animate_state[0] + 1) % len(dots)
         try:
             dots_label.configure(text=dots[animate_state[0]])
-            splash.after(200, animate_loading)
-        except:
+            if splash_state["animation_id"]:
+                splash.after_cancel(splash_state["animation_id"])
+            splash_state["animation_id"] = splash.after(200, animate_loading)
+        except Exception:
             pass
+    def cleanup():
+        try:
+            if splash_state["animation_id"]:
+                splash.after_cancel(splash_state["animation_id"])
+                splash_state["animation_id"] = None
+        except Exception:
+            pass
+    splash_state["cleanup"] = cleanup
     animate_loading()
     splash.update()
-    
-    return splash
+    return splash, splash_state
 
 def main():
     """Main application entry point"""
     # Create and show splash screen
     try:
-        splash = create_modern_splash()
+        splash, splash_state = create_modern_splash()
         # Show splash for 2.5 seconds
-        splash.after(2500, splash.destroy)
+        splash.after(2500, lambda: (splash_state["cleanup"](), splash.destroy()))
         splash.mainloop()
-    except:
+    except Exception:
         pass  # Skip splash if there are issues
     
     # Create main application

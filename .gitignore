@@ -1,0 +1,4 @@
+# Blacklist sensitive and cache files
+.spotify_cache
+spotify_playlist.log
+.env
