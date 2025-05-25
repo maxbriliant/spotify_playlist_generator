@@ -40,12 +40,18 @@ if not sys.prefix.startswith(venv_path):
 def log(message: str) -> None:
     """
     Adds timestamps to messages and saves them to a log file.
-    I might be a bit obsessive about logging, but it's saved me many times!
+    Handles Unicode safely for all platforms.
     """
+    import platform
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     entry = f"{timestamp} - {message}"
-    print(entry, flush=True)
-    with open("spotify_playlist.log", "a", encoding="utf-8") as f:
+    # Print to console, replacing non-encodable chars
+    print(entry, flush=True, errors='replace')
+    # Write to log file, always as UTF-8
+    encoding = 'utf-8'
+    if platform.system().lower() == 'windows':
+        encoding = 'utf-8'
+    with open("spotify_playlist.log", "a", encoding=encoding, errors='replace') as f:
         f.write(entry + "\n")
 
 # The search magic - this took me forever to get right!

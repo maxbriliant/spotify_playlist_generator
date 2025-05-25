@@ -99,12 +99,10 @@ def get_mouse_monitor_geometry(width, height):
 
 # Enable debug logging for final testing phase
 # TODO: Set to False for production release
-DEBUG = True
+DEBUG = False
 
 def debug_log(message):
-    """Print debug messages when debug mode is enabled"""
-    if DEBUG:
-        print(f"DEBUG: {message}")
+    pass
 
 # UI layout constants - carefully tuned for best user experience
 INITIAL_WINDOW_WIDTH = 600
@@ -1159,54 +1157,65 @@ def main():
     splash = None
     root = None
     try:
-        debug_log("Starting application...")
-        
-        # Create and show splash screen
+        # Splash-Screen sofort anzeigen
         splash = create_splash_screen()
-        
-        # Simulate loading time
-        time.sleep(1.2)
-        
-        # Initialize main app - make sure to destroy splash before creating root
-        if splash and splash.winfo_exists():
+        splash.update()
+        # Environment-Check im Hintergrund, Splash bleibt sichtbar
+        def do_env_check_and_start():
             try:
-                if hasattr(splash, 'cleanup'):
-                    splash.cleanup()
-                splash.destroy()
-                splash = None
+                # Prüfe und boote ggf. venv (wie bisher, aber ohne sichtbares Terminal)
+                venv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv_spotify")
+                venv_python = os.path.join(venv_dir, "bin", "python")
+                if sys.platform == "win32":
+                    venv_python = os.path.join(venv_dir, "Scripts", "python.exe")
+                if not sys.prefix.startswith(venv_dir):
+                    if not os.path.exists(venv_python):
+                        subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    reqs = [
+                        "spotipy",
+                        "python-dotenv",
+                        "pillow",
+                        "screeninfo",
+                        "python-xlib; platform_system != 'Windows'",
+                        "requests",
+                        "charset_normalizer",
+                        "idna",
+                        "urllib3"
+                    ]
+                    subprocess.run([venv_python, "-m", "pip", "install", "--upgrade", "pip"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run([venv_python, "-m", "pip", "install"] + reqs, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    os.execv(venv_python, [venv_python] + sys.argv)
+                # Splash schließen und GUI starten
+                if splash and splash.winfo_exists():
+                    if hasattr(splash, 'cleanup'):
+                        splash.cleanup()
+                    splash.destroy()
+                # Hauptfenster starten
+                root = tk.Tk()
+                app = SpotifyPlaylistGeneratorGUI(root)
+                app.load_recent_files()
+                root.mainloop()
             except Exception as e:
-                debug_log(f"Error during splash cleanup: {e}")
-        
-        # Now create the main application window
-        root = tk.Tk()
-        app = SpotifyPlaylistGeneratorGUI(root)
-        
-        # Make sure to load any recent files for the UI
-        app.load_recent_files()
-        
-        # Start the application main loop
-        debug_log("Starting main application loop")
-        root.mainloop()
-        
+                if splash and splash.winfo_exists():
+                    splash.destroy()
+                print(f"Error during environment check: {e}")
+        # Starte den Check asynchron, damit Splash animiert bleibt
+        import threading
+        threading.Thread(target=do_env_check_and_start, daemon=True).start()
+        splash.mainloop()
     except Exception as e:
-        debug_log(f"Error in main: {e}")
-        debug_log(traceback.format_exc())
         if root and root.winfo_exists():
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
         else:
             print(f"Error: {str(e)}")
-        
     finally:
-        # Final cleanup for both windows
         for window in [splash, root]:
             if window and hasattr(window, 'winfo_exists') and window.winfo_exists():
                 try:
-                    debug_log(f"Cleaning up window in finally block")
                     if hasattr(window, 'cleanup'):
                         window.cleanup()
                     window.destroy()
-                except Exception as e:
-                    debug_log(f"Final cleanup error: {e}")
+                except Exception:
                     pass
 
 if __name__ == "__main__":
