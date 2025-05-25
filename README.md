@@ -57,7 +57,7 @@ The GUI provides:
 - Automatic environment checking
 - One-click opening of created playlists
 
-![GUI Screenshot](demo.png)
+![GUI Screenshot](demo1.png)
 
 ### Command Line Usage
 
@@ -111,7 +111,7 @@ The GUI includes several helpful features:
 - **Credentials Management**: Easy setup of your Spotify API keys
 - **Console Output**: Formatted, color-coded output makes it easy to follow the process
 
-![Credentials Setup](dem.png)
+![Credentials Setup](demo2.png)
 
 ## ❓ Troubleshooting
 
