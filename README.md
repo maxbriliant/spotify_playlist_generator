@@ -5,7 +5,7 @@
 **Windows users:**
 
 1. Download and install the latest Python from [python.org/windows](https://www.python.org/downloads/windows/)
-2. Download this project as a ZIP (Code → Download ZIP) or clone it with Git:
+2. Download this project as a ZIP (Code → Download ZIP) or on *Linux and Mac* clone it with Git:
    ```
    git clone https://github.com/maxbriliant/spotify_playlist_generator.git
    ```
