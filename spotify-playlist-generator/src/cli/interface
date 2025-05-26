@@ -1,0 +1,309 @@
+"""
+Command Line Interface - CLI for Spotify Playlist Generator
+=========================================================
+Version: 2.0.0
+Author: MaxBriliant
+
+Provides a clean command-line interface for playlist creation.
+"""
+
+import sys
+import os
+from pathlib import Path
+from typing import Optional
+import argparse
+import logging
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from core.spotify_client import SpotifyClient, SpotifyError, AuthenticationError
+from core.playlist_creator import PlaylistCreator, PlaylistCreationResult
+from utils.config import ConfigManager
+from utils.logger import setup_logger
+from utils.file_utils import read_playlist_file, validate_playlist_file
+
+logger = logging.getLogger(__name__)
+
+class CLIInterface:
+    """Command line interface for Spotify Playlist Generator."""
+    
+    def __init__(self):
+        self.config_manager = ConfigManager()
+        self.spotify_client: Optional[SpotifyClient] = None
+        self.playlist_creator: Optional[PlaylistCreator] = None
+    
+    def setup_spotify_client(self) -> bool:
+        """Initialize Spotify client."""
+        try:
+            # Validate configuration
+            is_valid, errors = self.config_manager.validate_spotify_config()
+            if not is_valid:
+                print("❌ Spotify configuration is incomplete:")
+                for error in errors:
+                    print(f"   • {error}")
+                print("\nPlease check your .env file or run setup.")
+                return False
+            
+            # Create client
+            spotify_config = self.config_manager.get_spotify_config()
+            self.spotify_client = SpotifyClient(
+                client_id=spotify_config.client_id,
+                client_secret=spotify_config.client_secret,
+                redirect_uri=spotify_config.redirect_uri
+            )
+            
+            self.playlist_creator = PlaylistCreator(self.spotify_client)
+            
+            print(f"✅ Connected to Spotify as: {self.spotify_client.user_id}")
+            return True
+            
+        except AuthenticationError as e:
+            print(f"❌ Authentication failed: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Failed to setup Spotify client: {e}")
+            return False
+    
+    def create_playlist(self, playlist_name: str, songs_file: str, public: bool = False) -> bool:
+        """
+        Create a playlist from CLI arguments.
+        
+        Args:
+            playlist_name: Name for the playlist
+            songs_file: Path to songs file
+            public: Whether playlist should be public
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Validate input file
+            is_valid, error = validate_playlist_file(songs_file)
+            if not is_valid:
+                print(f"❌ Invalid playlist file: {error}")
+                return False
+            
+            # Setup Spotify client
+            if not self.spotify_client and not self.setup_spotify_client():
+                return False
+            
+            print(f"🎵 Creating playlist: {playlist_name}")
+            print(f"📁 Using songs from: {songs_file}")
+            
+            # Create playlist
+            result = self.playlist_creator.create_from_tracks(
+                playlist_name=playlist_name,
+                track_strings=read_playlist_file(songs_file),
+                public=public
+            )
+            
+            # Display results
+            self.display_results(result)
+            
+            # Ask to open playlist
+            if result.success and result.playlist_url:
+                ui_config = self.config_manager.get_ui_config()
+                if ui_config.auto_open_playlist:
+                    import webbrowser
+                    webbrowser.open(result.playlist_url)
+                    print("🌐 Opened playlist in browser")
+            
+            return result.success
+            
+        except KeyboardInterrupt:
+            print("\n👋 Operation cancelled by user")
+            return False
+        except Exception as e:
+            logger.error(f"Playlist creation failed: {e}")
+            print(f"❌ Error: {e}")
+            return False
+    
+    def display_results(self, result: PlaylistCreationResult):
+        """Display playlist creation results."""
+        if result.success:
+            print("\n🎉 Playlist created successfully!")
+            print(f"📊 Statistics:")
+            print(f"   • Total tracks requested: {result.total_tracks_requested}")
+            print(f"   • Tracks found: {result.tracks_found}")
+            print(f"   • Tracks added: {result.tracks_added}")
+            
+            if result.playlist_url:
+                print(f"🔗 Playlist URL: {result.playlist_url}")
+            
+            if result.failed_tracks:
+                print(f"\n⚠️  Failed to find {len(result.failed_tracks)} tracks:")
+                for track in result.failed_tracks[:5]:  # Show first 5
+                    print(f"   • {track}")
+                if len(result.failed_tracks) > 5:
+                    print(f"   • ... and {len(result.failed_tracks) - 5} more")
+        else:
+            print("❌ Failed to create playlist")
+            if result.failed_tracks:
+                print(f"Could not find {len(result.failed_tracks)} tracks")
+    
+    def interactive_mode(self):
+        """Run in interactive mode."""
+        print("🎵 Spotify Playlist Generator - Interactive Mode")
+        print("=" * 50)
+        
+        try:
+            # Get playlist name
+            playlist_name = input("Enter playlist name: ").strip()
+            if not playlist_name:
+                print("❌ Playlist name is required")
+                return False
+            
+            # Get songs file
+            while True:
+                songs_file = input("Enter path to songs file: ").strip()
+                if not songs_file:
+                    print("❌ Songs file is required")
+                    continue
+                
+                is_valid, error = validate_playlist_file(songs_file)
+                if is_valid:
+                    break
+                else:
+                    print(f"❌ {error}")
+                    retry = input("Try again? (y/N): ").lower()
+                    if retry != 'y':
+                        return False
+            
+            # Get public/private setting
+            public_input = input("Make playlist public? (y/N): ").lower()
+            public = public_input == 'y'
+            
+            # Create playlist
+            return self.create_playlist(playlist_name, songs_file, public)
+            
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
+            return False
+    
+    def setup_credentials(self):
+        """Interactive credentials setup."""
+        print("🔧 Spotify API Credentials Setup")
+        print("=" * 35)
+        print()
+        print("To use this application, you need Spotify API credentials.")
+        print("1. Go to: https://developer.spotify.com/dashboard")
+        print("2. Create a new app")
+        print("3. Copy your Client ID and Client Secret")
+        print("4. Set Redirect URI to: http://127.0.0.1:8888/callback")
+        print()
+        
+        try:
+            client_id = input("Enter Client ID: ").strip()
+            if not client_id:
+                print("❌ Client ID is required")
+                return False
+            
+            client_secret = input("Enter Client Secret: ").strip()
+            if not client_secret:
+                print("❌ Client Secret is required")
+                return False
+            
+            redirect_uri = input("Enter Redirect URI (or press Enter for default): ").strip()
+            if not redirect_uri:
+                redirect_uri = "http://127.0.0.1:8888/callback"
+            
+            # Create .env file
+            env_content = f"""# Spotify API Credentials
+SPOTIPY_CLIENT_ID={client_id}
+SPOTIPY_CLIENT_SECRET={client_secret}
+SPOTIPY_REDIRECT_URI={redirect_uri}
+"""
+            
+            env_path = Path.cwd() / ".env"
+            with open(env_path, 'w') as f:
+                f.write(env_content)
+            
+            print(f"✅ Credentials saved to: {env_path}")
+            print("You can now create playlists!")
+            return True
+            
+        except KeyboardInterrupt:
+            print("\n👋 Setup cancelled")
+            return False
+        except Exception as e:
+            print(f"❌ Failed to save credentials: {e}")
+            return False
+
+def main():
+    """Main CLI entry point."""
+    parser = argparse.ArgumentParser(
+        description="Spotify Playlist Generator - Command Line Interface",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s                                    # Interactive mode
+  %(prog)s --playlist "My Mix" --songs list.txt  # Direct creation
+  %(prog)s --setup                           # Setup credentials
+  %(prog)s --debug --playlist "Test" --songs test.txt  # Debug mode
+        """
+    )
+    
+    parser.add_argument(
+        '--playlist', '-p',
+        help='Playlist name'
+    )
+    parser.add_argument(
+        '--songs', '-s',
+        help='Path to songs file'
+    )
+    parser.add_argument(
+        '--public',
+        action='store_true',
+        help='Make playlist public'
+    )
+    parser.add_argument(
+        '--setup',
+        action='store_true',
+        help='Setup Spotify API credentials'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug logging'
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='Spotify Playlist Generator CLI v2.0.0'
+    )
+    
+    args = parser.parse_args()
+    
+    # Setup logging
+    setup_logger(debug=args.debug)
+    
+    # Create CLI interface
+    cli = CLIInterface()
+    
+    try:
+        if args.setup:
+            # Setup mode
+            success = cli.setup_credentials()
+            sys.exit(0 if success else 1)
+        
+        elif args.playlist and args.songs:
+            # Direct creation mode
+            success = cli.create_playlist(args.playlist, args.songs, args.public)
+            sys.exit(0 if success else 1)
+        
+        else:
+            # Interactive mode
+            success = cli.interactive_mode()
+            sys.exit(0 if success else 1)
+    
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"CLI error: {e}")
+        print(f"❌ Unexpected error: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

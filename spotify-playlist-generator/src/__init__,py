@@ -1,0 +1,91 @@
+# src/__init__.py
+"""
+Spotify Playlist Generator - Main Package
+========================================
+Version: 2.0.0
+Author: MaxBriliant
+"""
+
+__version__ = "2.0.0"
+__author__ = "MaxBriliant"
+__email__ = "mxbit@yahoo.com"
+
+# =====================================
+
+# src/core/__init__.py
+"""
+Core Module - Business Logic
+===========================
+
+Contains the core functionality for Spotify integration and playlist creation.
+"""
+
+from .spotify_client import SpotifyClient, SpotifyError, AuthenticationError
+from .playlist_creator import PlaylistCreator, PlaylistCreationResult
+
+__all__ = [
+    'SpotifyClient',
+    'SpotifyError', 
+    'AuthenticationError',
+    'PlaylistCreator',
+    'PlaylistCreationResult'
+]
+
+# =====================================
+
+# src/gui/__init__.py
+"""
+GUI Module - User Interface Components
+=====================================
+
+Contains the graphical user interface components and themes.
+"""
+
+# =====================================
+
+# src/utils/__init__.py
+"""
+Utils Module - Utility Functions
+===============================
+
+Contains configuration, logging, and file utilities.
+"""
+
+from .config import ConfigManager, SpotifyConfig, UIConfig, AppConfig
+from .logger import setup_logger, ConsoleLogger
+from .file_utils import read_playlist_file, validate_playlist_file
+
+__all__ = [
+    'ConfigManager',
+    'SpotifyConfig',
+    'UIConfig', 
+    'AppConfig',
+    'setup_logger',
+    'ConsoleLogger',
+    'read_playlist_file',
+    'validate_playlist_file'
+]
+
+# =====================================
+
+# src/cli/__init__.py
+"""
+CLI Module - Command Line Interface
+==================================
+
+Contains command-line interface components.
+"""
+
+from .cli_interface import CLIInterface
+
+__all__ = ['CLIInterface']
+
+# =====================================
+
+# tests/__init__.py
+"""
+Tests Module - Unit Tests
+========================
+
+Contains unit tests for all components.
+"""
