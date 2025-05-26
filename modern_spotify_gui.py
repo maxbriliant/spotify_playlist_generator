@@ -494,7 +494,7 @@ class ModernSpotifyGUI:
         
         file_label = tk.Label(
             file_section,
-            text="Songs File",
+            text="Playlist File",
             font=ModernConfig.FONTS['body_medium'],
             fg=self.style_manager.colors['on_surface'],
             bg=self.style_manager.colors['surface_container'],

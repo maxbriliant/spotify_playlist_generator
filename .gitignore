@@ -1,4 +1,6 @@
 # Blacklist sensitive and cache files
+__pycache__
+venv_spotify
 .spotify_cache
 spotify_playlist.log
 .env
