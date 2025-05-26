@@ -61,8 +61,8 @@ env_path = os.path.join(current_dir, ".env")
 if not os.path.exists(env_path):
     with open(env_path, "w") as f:
         f.write("# Spotify API Credentials - Fill these values!\n")
-        f.write("SPOTIPY_CLIENT_ID=your_client_id_here\n")
-        f.write("SPOTIPY_CLIENT_SECRET=your_client_secret_here\n")
+        f.write("SPOTIPY_CLIENT_ID=\n")
+        f.write("SPOTIPY_CLIENT_SECRET=\n")
         f.write("SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback\n")
     print(".env template created. You must edit this file with your Spotify credentials!")
 else:
